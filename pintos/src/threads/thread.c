@@ -170,6 +170,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  init_file_d();
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -507,3 +508,21 @@ static tid_t allocate_tid(void) {
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
+
+void init_file_d(struct thread* t) {
+  struct file** files = malloc(sizeof(struct file*) * 128);
+  t->file_d = files;
+}
+
+int add_file_d(struct file* file, struct thread* t) {
+  struct file** files = t->file_d;
+  for (int i = 2; i < 128; i++) {
+    if (!files[i]) {
+      files[i] = file;
+    }
+    return i;
+  }
+  return -1;
+}
+
+void remove_file_d(int fd, struct thread* t) { (t->file_d)[fd] = NULL; }
