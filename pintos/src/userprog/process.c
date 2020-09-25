@@ -48,10 +48,8 @@ tid_t process_execute(const char* args) {
   strlcpy(args_copy2, args, PGSIZE);
 
   char* file_name = strtok_r(args_copy, " ", &saveptr);
-
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, args_copy2);
-  palloc_free_page(args_copy2);
 
   if (tid == TID_ERROR)
     palloc_free_page(args_copy);
@@ -61,7 +59,7 @@ tid_t process_execute(const char* args) {
 /* A thread function that loads a user process and starts it
    running. */
 static void start_process(void* args) {
-  args = (char*)args;
+  char* args_cast = args;
   struct intr_frame if_;
   bool success;
 
@@ -71,10 +69,10 @@ static void start_process(void* args) {
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load(args, &if_.eip, &if_.esp);
+  success = load(args_cast, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page(args);
+  palloc_free_page(args_cast);
   if (!success)
     thread_exit();
 
@@ -226,24 +224,20 @@ bool load(const char* args, void (**eip)(void), void** esp) {
   process_activate();
 
   /* Open executable file. */
-
   args_copy = palloc_get_page(0);
   if (args_copy == NULL)
     return TID_ERROR;
-
   strlcpy(args_copy, args, PGSIZE);
   file_name = strtok_r(args_copy, " ", &saveptr);
-  char* file_temp = malloc(strlen(file_name) + 1);
-  strlcpy(file_temp, file_name, strlen(file_name) + 1);
   file = filesys_open(file_name);
-
-  add_file_d(file, thread_current());
-  file_deny_write(file);
 
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
     goto done;
   }
+
+  add_file_d(file, thread_current());
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
@@ -430,34 +424,37 @@ static bool setup_stack(void** esp, char* args) {
     success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
     if (success) {
       int argc = 0;
-      char* argv[128];
+      uint8_t* argv[128];
       char* token;
       char* saveptr;
 
       uint8_t* sp = (uint8_t*)PHYS_BASE;
-      while (token = strtok_r(args, " ", &saveptr)) {
-        int length = strlen(token) + 1;
+      token = strtok_r(args, " ", &saveptr);
+      while (token != NULL) {
+        size_t length = strlen(token) + 1;
         sp -= length;
         argv[argc] = sp;
         strlcpy((char*)sp, token, length);
         argc++;
+        token = strtok_r(NULL, " ", &saveptr);
       }
       argv[argc] = NULL;
-
       uint8_t align = (uint8_t)((sp - 4 * (argc + 1) - 8)) % 16;
       sp -= align;
 
       for (int i = argc; i >= 0; i--) {
         sp -= 4;
-        *sp = argv[i];
+        *(uint32_t*)sp = (uint32_t)argv[i];
       }
-
       sp -= 4;
-      *sp = sp + 4;
+      *(uint32_t*)sp = (uint32_t)(sp + 4);
+      // printf("%x address of argv\n", *sp);
+      // printf("%x address of argv with cast\n", *(uint32_t*)sp);
       sp -= 4;
-      *sp = argc;
+      *(uint32_t*)sp = (uint32_t)(argc);
+      // hex_dump(0, sp, 32, true);
       sp -= 4;
-      *sp = (void*)NULL;
+      *(uint32_t*)sp = (void*)NULL;
       *esp = sp;
     } else
       palloc_free_page(kpage);

@@ -18,7 +18,6 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t);
 int syscall_write(int fd, void* buffer, unsigned size, struct thread* t);
 void syscall_seek(int fd, unsigned position, struct thread* t);
 unsigned syscall_tell(int fd, struct thread* t);
-void syscall_close(int fd, struct thread* t);
 void validate_ptr(void* ptr, int size);
 
 void syscall_init(void) {
@@ -70,9 +69,6 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
   if (fd == 0) {
     //not sure what to pass in
     return input_getc();
-  } else if (fd == 1) {
-    //EXIT
-    general_exit(-1);
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
@@ -86,13 +82,11 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
 int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   if (fd == 1) {
     putbuf(buffer, size);
-  } else if (fd == 0) {
-    //EXIT
-    general_exit(-1);
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
       general_exit(-1);
+      return -1;
     }
     int result = file_write(file_struct, buffer, size);
     return result;
@@ -116,7 +110,7 @@ unsigned syscall_tell(int fd, struct thread* t) {
   return file_tell(file_struct);
 }
 
-void close(int fd, struct thread* t) {
+void syscall_close(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (file_struct) {
     file_close(file_struct);
@@ -142,96 +136,101 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     case SYS_PRACTICE:
       validate_ptr(args + 1, 4);
       f->eax = (uint32_t)args[1] + 1;
-
+      break;
     case SYS_HALT:
       shutdown_power_off();
-
+      break;
     case SYS_EXIT:
       validate_ptr(args + 1, 4);
       f->eax = args[1];
       general_exit((int)args[1]);
-
+      break;
     case SYS_EXEC:
       validate_ptr(args + 1, 4);
       validate_ptr((char*)args[1], (strlen((char*)args[1]) + 1));
       f->eax = process_execute((char*)args[1]);
-
+      break;
       //task 3
     case SYS_WRITE:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
-      int fd = args[1];
-      void* buffer = args[2];
-      unsigned size = args[3];
-      if (!fd || !size) {
+      int fd_write = args[1];
+      void* buffer_write = args[2];
+      unsigned size_write = args[3];
+      if (!fd_write || !size_write) {
         general_exit(-1);
       }
-      validate_ptr(buffer, sizeof(void*));
-      f->eax = syscall_write(fd, buffer, size, thread_current());
-
+      validate_ptr(buffer_write, size_write + 1);
+      f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
+      break;
     case SYS_CREATE:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
-      char* file = args[1];
-      unsigned initial_size = args[2];
-      if (!initial_size) {
+      char* file_create = args[1];
+      unsigned initial_size_create = args[2];
+      if (!initial_size_create) {
         general_exit(-1);
       }
-      validate_ptr(file, sizeof(char*));
-      f->eax = syscall_create(file, initial_size);
-
+      validate_ptr(file_create, strlen(file_create) + 1);
+      f->eax = syscall_create(file_create, initial_size_create);
+      break;
     case SYS_OPEN:
       validate_ptr(args + 1, 4);
-      validate_ptr(args[1], sizeof(char*));
+      validate_ptr(args[1], (strlen((void*)args[1]) + 1));
       f->eax = syscall_open(args[1], thread_current());
-
+      break;
     case SYS_READ:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
-      int fd = args[1];
-      void* buffer = args[2];
-      unsigned size = args[3];
-      validate_ptr(buffer, sizeof(void*));
-      if (!fd || !size) {
+      int fd_read = args[1];
+      void* buffer_read = args[2];
+      unsigned size_read = args[3];
+      if (!fd_read || !size_read) {
         general_exit(-1);
       }
-      f->eax = syscall_read(fd, buffer, size, thread_current());
+      validate_ptr(buffer_read, (size_read + 1));
+      f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
+      break;
     case SYS_FILESIZE:
       validate_ptr(args + 1, 4);
       if (!args[1]) {
         general_exit(-1);
       }
       f->eax = syscall_filesize(args[1], thread_current());
+      break;
     case SYS_REMOVE:
       validate_ptr(args + 1, 4);
-      char* file = args[1];
-      validate_ptr(file, sizeof(char*));
-      f->eax = syscall_remove(file);
+      validate_ptr((char*)args[1], (strlen((char*)args[1]) + 1));
+      f->eax = syscall_remove(args[1]);
+      break;
     case SYS_SEEK:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
-      int fd = args[1];
+      int fd_seek = args[1];
       unsigned position = args[2];
-      if (!fd || !position) {
+      if (!fd_seek || !position) {
         general_exit(-1);
       }
-      syscall_seek(fd, position, thread_current());
+      syscall_seek(fd_seek, position, thread_current());
+      break;
     case SYS_TELL:
       validate_ptr(args + 1, 4);
-      int fd = args[1];
-      if (!fd) {
+      int fd_tell = args[1];
+      if (!fd_tell) {
         general_exit(-1);
       }
-      f->eax = syscall_tell(fd, thread_current());
+      f->eax = syscall_tell(fd_tell, thread_current());
+      break;
     case SYS_CLOSE:
       validate_ptr(args + 1, 4);
-      int fd = args[1];
-      if (!fd) {
+      int fd_close = args[1];
+      if (!fd_close) {
         general_exit(-1);
       }
-      syscall_close(fd, thread_current());
+      syscall_close(fd_close, thread_current());
+      break;
     default:
       break;
   }

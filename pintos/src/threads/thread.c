@@ -159,7 +159,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   struct switch_entry_frame* ef;
   struct switch_threads_frame* sf;
   tid_t tid;
-
   ASSERT(function != NULL);
 
   /* Allocate thread. */
@@ -177,7 +176,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
-
   /* Stack frame for switch_entry(). */
   ef = alloc_frame(t, sizeof *ef);
   ef->eip = (void (*)(void))kernel_thread;
