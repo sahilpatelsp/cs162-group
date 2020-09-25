@@ -91,14 +91,25 @@ struct thread {
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List elemt. */
-  struct file** file_d;
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
+  struct file** file_d;
   uint32_t* pagedir; /* Page directory. */
 #endif
 
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
+
+  struct thread_data* thread_data;
+  struct list* children_data;
+};
+
+struct thread_data {
+  struct semaphore sema;
+  int ref_cnt;
+  int loaded;
+  int exit_status;
+  struct list_elem elem;
 };
 
 /* If false (default), use round-robin scheduler.
