@@ -9,8 +9,8 @@
 
 /* States in a thread's life cycle. */
 enum thread_status {
-  THREAD_RUNNING, /* Running thread. */
-  THREAD_READY,   /* Not running but ready to run. */
+  THREAD_RUNNING, /* Running tr ead. */
+  THREAD_READY,   /* Not run ing but ready to run. */
   THREAD_BLOCKED, /* Waiting for an event to trigger. */
   THREAD_DYING    /* About to be destroyed. */
 };
@@ -25,13 +25,14 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
 
-/* A kernel thread or user process.
+/* A  kernel thread or user process.
+     
+     
 
-   Each thread structure is stored in its own 4 kB page.  The
+   Ech thread structure is stored in its own 4 kB page.  The
    thread structure itself sits at the very bottom of the page
    (at offset 0).  The rest of the page is reserved for the
    thread's kernel stack, which grows downward from the top of
-   the page (at offset 4 kB).  Here's an illustration:
 
         4 kB +---------------------------------+
              |          kernel stack           |
@@ -39,9 +40,7 @@ typedef int tid_t;
              |                |                |
              |                V                |
              |         grows downward          |
-             |                                 |
-             |                                 |
-             |                                 |
+             |                                     |                              |                                 |
              |                                 |
              |                                 |
              |                                 |
@@ -60,7 +59,7 @@ typedef int tid_t;
       1. First, `struct thread' must not be allowed to grow too
          big.  If it does, then there will not be enough room for
          the kernel stack.  Our base `struct thread' is only a
-         few bytes in size.  It probably should stay well under 1
+         few bytes in size.  I t probably should stay well under 1
          kB.
 
       2. Second, kernel stacks must not be allowed to grow too
@@ -73,12 +72,12 @@ typedef int tid_t;
    The first symptom of either of these problems will probably be
    an assertion failure in thread_current(), which checks that
    the `magic' member of the running thread's `struct thread' is
-   set to THREAD_MAGIC.  Stack overflow will normally change this
+   set to THREAD_MAGIC.  Stack  overflow will normally change this
    value, triggering the assertion. */
-/* The `elem' member has a dual purpose.  It can be an element in
+/* The `elem' member has  dual purpose.  It can be an element in
    the run queue (thread.c), or it can be an element in a
    semaphore wait list (synch.c).  It can be used these two ways
-   only because they are mutually exclusive: only a thread in the
+    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 struct thread {
@@ -91,25 +90,24 @@ struct thread {
   struct list_elem allelem;  /* List element for all threads list. */
 
   /* Shared between thread.c and synch.c. */
-  struct list_elem elem; /* List element. */
+  struct list_elem elem; /* List elemt. */
   struct file** file_d;
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
   uint32_t* pagedir; /* Page directory. */
 #endif
 
-  /* Owned by thread.c. */
+  /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
 };
 
 /* If false (default), use round-robin scheduler.
-   If true, use multi-level feedback queue scheduler.
+   If true, use multi-level feed*bck queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
 void thread_init(void);
 void thread_start(void);
-
 void thread_tick(void);
 void thread_print_stats(void);
 
@@ -126,7 +124,7 @@ const char* thread_name(void);
 void thread_exit(void) NO_RETURN;
 void thread_yield(void);
 
-/* Performs some operation on thread t, given auxiliary data AUX. */
+/* Perfo rms some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func(struct thread* t, void* aux);
 void thread_foreach(thread_action_func*, void*);
 
@@ -138,7 +136,7 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
-// Helper Functions for file descriptor array
+//Helper Functions for file descriptor array
 void init_file_d(
     struct thread*
         t); //Initialize file descriptor array with 0 and 1 set to dummy values and rest with value null

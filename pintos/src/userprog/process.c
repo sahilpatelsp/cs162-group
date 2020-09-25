@@ -236,8 +236,10 @@ bool load(const char* args, void (**eip)(void), void** esp) {
   char* file_temp = malloc(strlen(file_name) + 1);
   strlcpy(file_temp, file_name, strlen(file_name) + 1);
   file = filesys_open(file_name);
-  while (1) {
-  }
+
+  add_file_d(file, thread_current());
+  file_deny_write(file);
+
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
     goto done;
