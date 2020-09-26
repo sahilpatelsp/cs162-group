@@ -29,6 +29,7 @@ void validate_ptr(void* ptr, int size) {
   if (ptr == NULL || !is_user_vaddr(ptr) || !pagedir_get_page(thread_current()->pagedir, ptr) ||
       !is_user_vaddr(ptr + size - 1) ||
       !pagedir_get_page(thread_current()->pagedir, ptr + size - 1)) {
+    printf("HELLO WORLD");
     general_exit(-1);
   }
 }
@@ -161,7 +162,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (!fd_write || !size_write) {
         general_exit(-1);
       }
-      validate_ptr(buffer_write, size_write + 1);
+      validate_ptr((char*)buffer_write, size_write + 1);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
       break;
     case SYS_CREATE:
@@ -172,7 +173,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (!initial_size_create) {
         general_exit(-1);
       }
-      validate_ptr(file_create, strlen(file_create) + 1);
+      validate_ptr((char*)file_create, strlen(file_create) + 1);
       f->eax = syscall_create(file_create, initial_size_create);
       break;
     case SYS_OPEN:
@@ -190,7 +191,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (!fd_read || !size_read) {
         general_exit(-1);
       }
-      validate_ptr(buffer_read, (size_read + 1));
+      validate_ptr((char*)buffer_read, (size_read + 1));
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
       break;
     case SYS_FILESIZE:
