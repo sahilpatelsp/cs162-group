@@ -88,6 +88,8 @@ struct thread {
   uint8_t* stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
   struct list_elem allelem;  /* List element for all threads list. */
+  struct thread_data* thread_data;
+  struct list children_data;
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List elemt. */
@@ -99,9 +101,6 @@ struct thread {
 
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
-
-  //   struct thread_data* thread_data;
-  //   struct list children_data;
 };
 
 struct thread_data {
