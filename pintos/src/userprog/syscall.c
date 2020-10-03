@@ -8,6 +8,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
+//Dummy comment
+
 struct lock lock;
 static void syscall_handler(struct intr_frame*);
 bool syscall_create(const char* file, unsigned initial_size);

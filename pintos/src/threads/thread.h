@@ -106,6 +106,7 @@ struct thread {
 
 struct thread_data {
   struct semaphore sema;
+  int pid;
   int ref_cnt;
   int loaded;
   int exit_status;
