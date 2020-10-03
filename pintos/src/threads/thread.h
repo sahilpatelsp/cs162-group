@@ -100,12 +100,13 @@ struct thread {
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
 
-  struct thread_data* thread_data;
-  struct list* children_data;
+  //   struct thread_data* thread_data;
+  //   struct list children_data;
 };
 
 struct thread_data {
   struct semaphore sema;
+  struct lock lock;
   int pid;
   int ref_cnt;
   int loaded;

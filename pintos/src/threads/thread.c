@@ -89,12 +89,22 @@ void thread_init(void) {
   lock_init(&tid_lock);
   list_init(&ready_list);
   list_init(&all_list);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  // struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
+  // thread_data->ref_cnt = 1;
+  // thread_data->pid = initial_thread->tid;
+  // sema_init(&thread_data->sema, 0);
+  // lock_init(&(thread_data->lock));
+  // initial_thread->thread_data = thread_data;
+
+  // struct list* children_data = (struct list*)malloc(sizeof(struct list));
+  //list_init(&(initial_thread->children_data));
+  // initial_thread->children_data = children_data;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -169,10 +179,20 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  // t->thread_data->pid = tid;
+  ////////////////////////
+  // struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
+  // thread_data->ref_cnt = 1;
+  // thread_data->pid = t->tid;
+  // sema_init(&thread_data->sema, 0);
+  // lock_init(&(thread_data->lock));
+  // t->thread_data = thread_data;
+
+  // // struct list* children_data = (struct list*)malloc(sizeof(struct list));
+  // // list_init(&(t->children_data));
+  // // t->children_data = children_data;
 
   // struct thread* parent = thread_current();
-  // list_push_back(parent->children_data, &(t->thread_data->elem));
+  // // list_push_back(&(parent->children_data), &(t->thread_data->elem));
   // t->thread_data->ref_cnt++;
 
   init_file_d(t);
@@ -194,7 +214,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Add to run queue. */
   thread_unblock(t);
 
-  return tid;
+  return t->tid;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -405,14 +425,6 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  // struct thread_data* data = (struct thread_data*)malloc(sizeof(struct thread_data));
-  // data->ref_cnt = 1;
-  // sema_init(&data->sema, 0);
-
-  // t->thread_data = data;
-  // t->children_data = (struct list*)malloc(sizeof(struct list));
-  // list_init(t->children_data);
-
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
   intr_set_level(old_level);
@@ -522,7 +534,7 @@ static tid_t allocate_tid(void) {
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
 void init_file_d(struct thread* t) {
-  struct file** files = malloc(sizeof(struct file*) * 128);
+  struct file* files = malloc(sizeof(struct file*) * 128);
   t->file_d = files;
 }
 

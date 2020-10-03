@@ -21,6 +21,7 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t);
 void syscall_seek(int fd, unsigned position, struct thread* t);
 unsigned syscall_tell(int fd, struct thread* t);
 void validate_ptr(void* ptr, int size);
+void validate_str(void* str);
 
 void syscall_init(void) {
   lock_init(&lock);
@@ -32,6 +33,15 @@ void validate_ptr(void* ptr, int size) {
       !is_user_vaddr(ptr + size - 1) ||
       !pagedir_get_page(thread_current()->pagedir, ptr + size - 1)) {
     general_exit(-1);
+  }
+}
+
+void validate_str(void* str) {
+  char* strng = (char*)str;
+  validate_ptr(strng, 1);
+  while (*strng != '\0') {
+    strng++;
+    validate_ptr(strng, 1);
   }
 }
 
@@ -149,7 +159,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       break;
     case SYS_EXEC:
       validate_ptr(args + 1, 4);
-      validate_ptr((char*)args[1], (strlen((char*)args[1]) + 1));
+      validate_str(args[1]);
       f->eax = process_execute((char*)args[1]);
       break;
       //task 3
@@ -160,27 +170,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       int fd_write = args[1];
       void* buffer_write = args[2];
       unsigned size_write = args[3];
-      if (!fd_write || !size_write) {
+      if (fd_write == 0) {
         general_exit(-1);
       }
-      validate_ptr(buffer_write, size_write + 1);
+      validate_ptr(buffer_write, size_write);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
       break;
     case SYS_CREATE:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
-      char* file_create = args[1];
-      unsigned initial_size_create = args[2];
-      if (!initial_size_create) {
-        general_exit(-1);
-      }
-      validate_ptr(file_create, strlen(file_create) + 1);
+      validate_str(args[1]);
+      char* file_create = (char*)args[1];
+      unsigned initial_size_create = (unsigned)args[2];
+      // if (initial_size_create == NULL) {
+      //   general_exit(-1);
+      // }
       f->eax = syscall_create(file_create, initial_size_create);
       break;
     case SYS_OPEN:
       validate_ptr(args + 1, 4);
-      validate_ptr(args[1], (strlen((void*)args[1]) + 1));
-      f->eax = syscall_open(args[1], thread_current());
+      validate_str(args[1]);
+      f->eax = syscall_open((char*)args[1], thread_current());
       break;
     case SYS_READ:
       validate_ptr(args + 1, 4);
@@ -189,61 +199,50 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       int fd_read = args[1];
       void* buffer_read = args[2];
       unsigned size_read = args[3];
-      if (!fd_read || !size_read) {
+      if (fd_read == 1) {
         general_exit(-1);
       }
-      validate_ptr(buffer_read, (size_read + 1));
+      validate_ptr(buffer_read, size_read);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
       break;
     case SYS_FILESIZE:
       validate_ptr(args + 1, 4);
-      if (!args[1]) {
-        general_exit(-1);
-      }
       f->eax = syscall_filesize(args[1], thread_current());
       break;
     case SYS_REMOVE:
       validate_ptr(args + 1, 4);
-      validate_ptr((char*)args[1], (strlen((char*)args[1]) + 1));
-      f->eax = syscall_remove(args[1]);
+      validate_str((args[1]));
+      f->eax = syscall_remove((char*)args[1]);
       break;
     case SYS_SEEK:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       int fd_seek = args[1];
       unsigned position = args[2];
-      if (!fd_seek || !position) {
-        general_exit(-1);
-      }
+      // if (!fd_seek || !position) {
+      //   general_exit(-1);
+      // }
       syscall_seek(fd_seek, position, thread_current());
       break;
     case SYS_TELL:
       validate_ptr(args + 1, 4);
       int fd_tell = args[1];
-      if (!fd_tell) {
-        general_exit(-1);
-      }
+      // if (!fd_tell) {
+      //   general_exit(-1);
+      // }
       f->eax = syscall_tell(fd_tell, thread_current());
       break;
     case SYS_CLOSE:
       validate_ptr(args + 1, 4);
       int fd_close = args[1];
-      if (!fd_close) {
-        general_exit(-1);
-      }
+      // if (!fd_close) {
+      //   general_exit(-1);
+      // }
       syscall_close(fd_close, thread_current());
       break;
     default:
       break;
   }
-
-  // if (args[0] == SYS_WRITE) {
-  //   int fd = args[1];
-  //   const void* buffer = args[2];
-  //   unsigned size = args[3];
-  //   validate_ptr(buffer, size);
-  //   syscall_write(fd, buffer, size, thread_current()); // &thread_current?
-  // }
 
   // Iterate through args and set them to variables
   // Call corresponding function and store return value
