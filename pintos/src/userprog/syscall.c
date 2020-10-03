@@ -126,8 +126,10 @@ void syscall_close(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (file_struct) {
     file_close(file_struct);
+    remove_file_d(fd, t);
+  } else {
+    general_exit(-1);
   }
-  remove_file_d(fd, t);
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
@@ -154,8 +156,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       break;
     case SYS_EXIT:
       validate_ptr(args + 1, 4);
-      f->eax = args[1];
-      general_exit((int)args[1]);
+      int exit_status = (int)args[1];
+      thread_current()->thread_data->exit_status = exit_status;
+      f->eax = exit_status;
+      general_exit(exit_status);
       break;
     case SYS_EXEC:
       validate_ptr(args + 1, 4);
@@ -170,7 +174,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       int fd_write = args[1];
       void* buffer_write = args[2];
       unsigned size_write = args[3];
-      if (fd_write == 0) {
+      if (fd_write == 0 || fd_write > 127) {
         general_exit(-1);
       }
       validate_ptr(buffer_write, size_write);
@@ -199,7 +203,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       int fd_read = args[1];
       void* buffer_read = args[2];
       unsigned size_read = args[3];
-      if (fd_read == 1) {
+      if (fd_read == 1 || fd_read > 127) {
         general_exit(-1);
       }
       validate_ptr(buffer_read, size_read);
@@ -207,6 +211,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       break;
     case SYS_FILESIZE:
       validate_ptr(args + 1, 4);
+      if (args[1] < 0 || args[1] > 127) {
+        general_exit(-1);
+      }
       f->eax = syscall_filesize(args[1], thread_current());
       break;
     case SYS_REMOVE:
@@ -219,25 +226,25 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_ptr(args + 2, 4);
       int fd_seek = args[1];
       unsigned position = args[2];
-      // if (!fd_seek || !position) {
-      //   general_exit(-1);
-      // }
+      if (fd_seek < 0 || fd_seek > 127) {
+        general_exit(-1);
+      }
       syscall_seek(fd_seek, position, thread_current());
       break;
     case SYS_TELL:
       validate_ptr(args + 1, 4);
       int fd_tell = args[1];
-      // if (!fd_tell) {
-      //   general_exit(-1);
-      // }
+      if (fd_tell < 0 || fd_tell > 127) {
+        general_exit(-1);
+      }
       f->eax = syscall_tell(fd_tell, thread_current());
       break;
     case SYS_CLOSE:
       validate_ptr(args + 1, 4);
       int fd_close = args[1];
-      // if (!fd_close) {
-      //   general_exit(-1);
-      // }
+      if (fd_close < 2 || fd_close > 127) {
+        general_exit(-1);
+      }
       syscall_close(fd_close, thread_current());
       break;
     default:

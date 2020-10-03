@@ -70,6 +70,9 @@ tid_t process_execute(const char* args) {
   }
 
   struct thread_data* child_data = get_child_data(tid);
+  if (child_data == NULL) {
+    return TID_ERROR;
+  }
   sema_down(&(child_data->sema));
   if (child_data->loaded) {
     return tid;
@@ -127,9 +130,31 @@ int process_wait(tid_t child_tid UNUSED) {
 }
 
 /* Free the current process's resources. */
+void free_thread_data() {}
+
 void process_exit(void) {
   struct thread* cur = thread_current();
   uint32_t* pd;
+
+  bool free_thread_data = false;
+  lock_acquire(&(cur->thread_data->lock));
+  cur->thread_data->ref_cnt--;
+  lock_release(&(cur->thread_data->lock));
+  sema_up(&(cur->thread_data->sema));
+  if (cur->thread_data->ref_cnt == 0) {
+    free(cur->thread_data);
+  }
+
+  struct list_elem* e;
+  for (e = list_begin(&cur->children_data); e != list_end(&cur->children_data); e = list_next(e)) {
+    struct thread_data* child_data = list_entry(e, struct thread_data, elem);
+    lock_acquire(&child_data->lock);
+    child_data->ref_cnt--;
+    lock_release(&child_data->lock);
+    if (child_data->ref_cnt == 0) {
+      free(child_data);
+    }
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

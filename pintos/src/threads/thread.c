@@ -169,8 +169,12 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   tid = t->tid = allocate_tid();
   ////////////////////////
   struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
+  if (thread_data == NULL) {
+    return TID_ERROR;
+  }
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
+  thread_data->exit_status = -1;
   sema_init(&(thread_data->sema), 0);
   lock_init(&(thread_data->lock));
   t->thread_data = thread_data;
