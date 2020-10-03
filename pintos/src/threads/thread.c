@@ -169,11 +169,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  t->thread_data->pid = tid;
+  // t->thread_data->pid = tid;
 
-  struct thread* parent = thread_current();
-  list_push_back(parent->children_data, &(t->thread_data->elem));
-  t->thread_data->ref_cnt++;
+  // struct thread* parent = thread_current();
+  // list_push_back(parent->children_data, &(t->thread_data->elem));
+  // t->thread_data->ref_cnt++;
 
   init_file_d(t);
 
@@ -405,13 +405,13 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  struct thread_data* data = (struct thread_data*)malloc(sizeof(struct thread_data));
-  data->ref_cnt = 1;
-  sema_init(&data->sema, 0);
+  // struct thread_data* data = (struct thread_data*)malloc(sizeof(struct thread_data));
+  // data->ref_cnt = 1;
+  // sema_init(&data->sema, 0);
 
-  t->thread_data = data;
-  t->children_data = (struct list*)malloc(sizeof(struct list));
-  list_init(t->children_data);
+  // t->thread_data = data;
+  // t->children_data = (struct list*)malloc(sizeof(struct list));
+  // list_init(t->children_data);
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
