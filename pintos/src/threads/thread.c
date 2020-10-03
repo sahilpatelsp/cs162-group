@@ -519,7 +519,7 @@ uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
 void init_file_d(struct thread* t) {
   struct file* files = malloc(sizeof(struct file*) * 128);
-  t->file_d = files;
+  t->file_d = &files;
 }
 
 int add_file_d(struct file* file, struct thread* t) {

@@ -22,6 +22,19 @@
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* cmdline, void (**eip)(void), void** esp);
+struct thread_data* get_child_data(tid_t tid);
+
+struct thread_data* get_child_data(tid_t tid) {
+  struct list children_data = thread_current()->children_data;
+  struct list_elem* e;
+  for (e = list_begin(&children_data); e != list_end(&children_data); e = list_next(e)) {
+    struct thread_data* child_data = list_entry(e, struct thread_data, elem);
+    if (child_data->pid == tid) {
+      return child_data;
+    }
+  }
+  return NULL;
+}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -51,9 +64,18 @@ tid_t process_execute(const char* args) {
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, args_copy2);
 
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR) {
     palloc_free_page(args_copy);
-  return tid;
+    return TID_ERROR;
+  }
+
+  struct thread_data* child_data = get_child_data(tid);
+  sema_down(&(child_data->sema));
+  if (child_data->loaded) {
+    return tid;
+  } else {
+    return TID_ERROR;
+  }
 }
 
 /* A thread function that loads a user process and starts it
@@ -70,9 +92,13 @@ static void start_process(void* args) {
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load(args_cast, &if_.eip, &if_.esp);
-
-  /* If load failed, quit. */
   palloc_free_page(args_cast);
+
+  struct thread_data* thread_data = thread_current()->thread_data;
+  thread_data->loaded = success;
+  sema_up(&(thread_data->sema));
+  /* If load failed, quit. */
+
   if (!success)
     thread_exit();
 

@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
 
@@ -108,7 +109,7 @@ struct thread_data {
   struct lock lock;
   int pid;
   int ref_cnt;
-  int loaded;
+  bool loaded;
   int exit_status;
   struct list_elem elem;
 };
