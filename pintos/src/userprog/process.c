@@ -19,7 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-//static struct semaphore temporary;
+// static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* cmdline, void (**eip)(void), void** esp);
 struct thread_data* get_child_data(tid_t tid);
@@ -77,6 +77,7 @@ tid_t process_execute(const char* args) {
   if (child_data->loaded) {
     return tid;
   } else {
+    //free(child_data)
     return TID_ERROR;
   }
 }
@@ -84,7 +85,7 @@ tid_t process_execute(const char* args) {
 /* A thread function that loads a user process and starts it
    running. */
 static void start_process(void* args) {
-  char* args_cast = args;
+  char* args_cast = (char*)args;
   struct intr_frame if_;
   bool success;
 
@@ -95,13 +96,14 @@ static void start_process(void* args) {
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load(args_cast, &if_.eip, &if_.esp);
-  palloc_free_page(args_cast);
-
   struct thread_data* thread_data = thread_current()->thread_data;
   thread_data->loaded = success;
   sema_up(&(thread_data->sema));
-  /* If load failed, quit. */
 
+  // thread_exit();
+
+  /* If load failed, quit. */
+  palloc_free_page(args_cast);
   if (!success)
     thread_exit();
 
@@ -125,19 +127,19 @@ static void start_process(void* args) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-  //sema_down(&temporary);
+  // sema_down(&temporary);
   struct thread_data* child_data = get_child_data(child_tid);
-  if (child_data == NULL || child_data->wait) {
+  if (child_data == NULL || child_data->waited) {
     return -1;
   }
-  child_data->wait = true;
+  child_data->waited = true;
   sema_down(&(child_data->sema));
-  int exit_status;
+  //int exit_status;
+  int exit_status = child_data->exit_status;
   lock_acquire(&(child_data->lock));
-  exit_status = child_data->exit_status;
+  //exit_status = child_data->exit_status;
   child_data->ref_cnt--;
   lock_release(&(child_data->lock));
-
   if (child_data->ref_cnt == 0) {
     list_remove(&(child_data->elem));
     free(child_data);
@@ -148,6 +150,7 @@ int process_wait(tid_t child_tid UNUSED) {
 
 /* Free the current process's resources. */
 void process_exit(void) {
+  // sema_up(&temporary);
   struct thread* cur = thread_current();
   uint32_t* pd;
 
@@ -296,7 +299,6 @@ bool load(const char* args, void (**eip)(void), void** esp) {
   strlcpy(args_copy, args, PGSIZE);
   file_name = strtok_r(args_copy, " ", &saveptr);
   file = filesys_open(file_name);
-
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
     goto done;
@@ -514,11 +516,8 @@ static bool setup_stack(void** esp, char* args) {
       }
       sp -= 4;
       *(uint32_t*)sp = (uint32_t)(sp + 4);
-      // printf("%x address of argv\n", *sp);
-      // printf("%x address of argv with cast\n", *(uint32_t*)sp);
       sp -= 4;
       *(uint32_t*)sp = (uint32_t)(argc);
-      // hex_dump(0, sp, 32, true);
       sp -= 4;
       *(uint32_t*)sp = (void*)NULL;
       *esp = sp;

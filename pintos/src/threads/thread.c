@@ -175,9 +175,10 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
   thread_data->exit_status = -1;
-  thread_data->wait = false;
+  thread_data->waited = false;
   thread_data->loaded = false;
   sema_init(&(thread_data->sema), 0);
+  //sema_init(&(thread_data->sema_wait), 0);
   lock_init(&(thread_data->lock));
   t->thread_data = thread_data;
 

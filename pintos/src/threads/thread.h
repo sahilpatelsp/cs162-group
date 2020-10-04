@@ -110,7 +110,7 @@ struct thread_data {
   int pid;
   int ref_cnt;
   bool loaded;
-  bool wait;
+  bool waited;
   int exit_status;
   struct list_elem elem;
 };

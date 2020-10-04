@@ -47,6 +47,7 @@ void validate_str(void* str) {
 
 void general_exit(int status) {
   //barebone exit, don't know if we have to write anything, modify later
+  thread_current()->thread_data->exit_status = status;
   printf("%s: exit(%d)\n", &thread_current()->name, status);
   thread_exit();
 }
@@ -128,7 +129,6 @@ unsigned syscall_tell(int fd, struct thread* t) {
 void syscall_close(int fd, struct thread* t) { remove_file_d(fd, t); }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
-  lock_acquire(&lock);
   uint32_t* args = ((uint32_t*)f->esp);
   validate_ptr(args, 4);
 
@@ -152,7 +152,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     case SYS_EXIT:
       validate_ptr(args + 1, 4);
       int exit_status = (int)args[1];
-      thread_current()->thread_data->exit_status = exit_status;
       f->eax = exit_status;
       general_exit(exit_status);
       break;
@@ -162,11 +161,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       f->eax = process_execute((char*)args[1]);
       break;
     case SYS_WAIT:
+      // printf("SYS_WAIT\n");
       validate_ptr(args + 1, 4);
       f->eax = process_wait((int)args[1]);
       break;
-      //task 3
     case SYS_WRITE:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
@@ -178,21 +178,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       }
       validate_ptr(buffer_write, size_write);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
+      lock_release(&lock);
       break;
     case SYS_CREATE:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
       f->eax = syscall_create(file_create, initial_size_create);
+      lock_release(&lock);
       break;
     case SYS_OPEN:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_str(args[1]);
       f->eax = syscall_open((char*)args[1], thread_current());
+      lock_release(&lock);
       break;
     case SYS_READ:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
@@ -204,20 +210,26 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       }
       validate_ptr(buffer_read, size_read);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
+      lock_release(&lock);
       break;
     case SYS_FILESIZE:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       if (args[1] < 0 || args[1] > 127) {
         general_exit(-1);
       }
       f->eax = syscall_filesize(args[1], thread_current());
+      lock_release(&lock);
       break;
     case SYS_REMOVE:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_str((args[1]));
       f->eax = syscall_remove((char*)args[1]);
+      lock_release(&lock);
       break;
     case SYS_SEEK:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       int fd_seek = args[1];
@@ -226,22 +238,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       syscall_seek(fd_seek, position, thread_current());
+      lock_release(&lock);
       break;
     case SYS_TELL:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       int fd_tell = args[1];
       if (fd_tell < 0 || fd_tell > 127) {
         general_exit(-1);
       }
       f->eax = syscall_tell(fd_tell, thread_current());
+      lock_release(&lock);
       break;
     case SYS_CLOSE:
+      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       int fd_close = args[1];
       if (fd_close < 2 || fd_close > 127) {
         general_exit(-1);
       }
       syscall_close(fd_close, thread_current());
+      lock_release(&lock);
       break;
     default:
       break;
@@ -250,6 +267,4 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   // Iterate through args and set them to variables
   // Call corresponding function and store return value
   //return the value
-
-  lock_release(&lock);
 }
