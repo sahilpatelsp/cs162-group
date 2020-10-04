@@ -148,7 +148,7 @@ int process_wait(tid_t child_tid) {
   lock_release(&(child_data->lock));
   if (child_data->ref_cnt == 0) {
     list_remove(&(child_data->elem));
-    free(child_data);
+    // free(child_data);
   }
 
   return exit_status;
