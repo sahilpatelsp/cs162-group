@@ -65,7 +65,7 @@ int syscall_open(const char* file, struct thread* t) {
   if (open_file == NULL) {
     return -1;
   }
-  int file_descriptor = add_file_d(file, t);
+  int file_descriptor = add_file_d(open_file, t);
   return file_descriptor;
 }
 
@@ -88,10 +88,9 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
-      general_exit(-1);
+      return -1;
     }
-    int result = file_read(file_struct, buffer, size);
-    return result;
+    return file_read(file_struct, buffer, size);
   }
 }
 
