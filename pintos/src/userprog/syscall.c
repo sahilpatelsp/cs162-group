@@ -161,7 +161,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       f->eax = process_execute((char*)args[1]);
       break;
     case SYS_WAIT:
-      // printf("SYS_WAIT\n");
       validate_ptr(args + 1, 4);
       f->eax = process_wait((int)args[1]);
       break;

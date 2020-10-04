@@ -25,9 +25,13 @@ static bool load(const char* cmdline, void (**eip)(void), void** esp);
 struct thread_data* get_child_data(tid_t tid);
 
 struct thread_data* get_child_data(tid_t tid) {
-  struct list children_data = thread_current()->children_data;
+  struct thread* curr = thread_current();
+  if (list_empty(&curr->children_data)) {
+    return NULL;
+  }
   struct list_elem* e;
-  for (e = list_begin(&children_data); e != list_end(&children_data); e = list_next(e)) {
+  for (e = list_begin(&curr->children_data); e != list_end(&curr->children_data);
+       e = list_next(e)) {
     struct thread_data* child_data = list_entry(e, struct thread_data, elem);
     if (child_data->pid == tid) {
       return child_data;
@@ -77,7 +81,6 @@ tid_t process_execute(const char* args) {
   if (child_data->loaded) {
     return tid;
   } else {
-    //free(child_data)
     return TID_ERROR;
   }
 }
@@ -96,16 +99,16 @@ static void start_process(void* args) {
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load(args_cast, &if_.eip, &if_.esp);
+  palloc_free_page(args_cast);
   struct thread_data* thread_data = thread_current()->thread_data;
   thread_data->loaded = success;
+  if (!success)
+    thread_exit();
   sema_up(&(thread_data->sema));
 
   // thread_exit();
 
   /* If load failed, quit. */
-  palloc_free_page(args_cast);
-  if (!success)
-    thread_exit();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -126,9 +129,10 @@ static void start_process(void* args) {
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait(tid_t child_tid UNUSED) {
+int process_wait(tid_t child_tid) {
   // sema_down(&temporary);
-  struct thread_data* child_data = get_child_data(child_tid);
+  struct thread* curr = thread_current();
+  struct thread_data* child_data = get_child_data((tid_t)child_tid);
   if (child_data == NULL || child_data->waited) {
     return -1;
   }
@@ -162,14 +166,17 @@ void process_exit(void) {
     free(cur->thread_data);
   }
 
-  struct list_elem* e;
-  for (e = list_begin(&cur->children_data); e != list_end(&cur->children_data); e = list_next(e)) {
-    struct thread_data* child_data = list_entry(e, struct thread_data, elem);
-    lock_acquire(&child_data->lock);
-    child_data->ref_cnt--;
-    lock_release(&child_data->lock);
-    if (child_data->ref_cnt == 0) {
-      free(child_data);
+  if (!list_empty(&cur->children_data)) {
+    struct list_elem* e;
+    for (e = list_begin(&cur->children_data); e != list_end(&cur->children_data);
+         e = list_next(e)) {
+      struct thread_data* child_data = list_entry(e, struct thread_data, elem);
+      lock_acquire(&child_data->lock);
+      child_data->ref_cnt--;
+      lock_release(&child_data->lock);
+      if (child_data->ref_cnt == 0) {
+        free(child_data);
+      }
     }
   }
 
