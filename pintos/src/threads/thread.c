@@ -161,24 +161,20 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   ASSERT(function != NULL);
   /* Allocate thread. */
   t = palloc_get_page(PAL_ZERO);
-  if (t == NULL)
+  struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
+  if (t == NULL || thread_data == NULL)
     return TID_ERROR;
 
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
   ////////////////////////
-  struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
-  if (thread_data == NULL) {
-    return TID_ERROR;
-  }
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
   thread_data->exit_status = -1;
   thread_data->waited = false;
   thread_data->loaded = false;
   sema_init(&(thread_data->sema), 0);
-  //sema_init(&(thread_data->sema_wait), 0);
   lock_init(&(thread_data->lock));
   t->thread_data = thread_data;
 

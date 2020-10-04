@@ -91,13 +91,13 @@ struct thread {
   struct list_elem allelem;  /* List element for all threads list. */
   struct thread_data* thread_data;
   struct list children_data;
-
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List elemt. */
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
   struct file** file_d;
   uint32_t* pagedir; /* Page directory. */
+  struct file* executable;
 #endif
 
   /* Owned bythread.c. */
