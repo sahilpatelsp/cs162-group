@@ -162,6 +162,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_str(args[1]);
       f->eax = process_execute((char*)args[1]);
       break;
+    case SYS_WAIT:
+      validate_ptr(args + 1, 4);
+      f->eax = process_wait((int)args[1]);
+      break;
       //task 3
     case SYS_WRITE:
       validate_ptr(args + 1, 4);
@@ -173,7 +177,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_write == 0 || fd_write > 127) {
         general_exit(-1);
       }
-      // validate_ptr(buffer_write, size_write);
+      validate_ptr(buffer_write, size_write);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
       break;
     case SYS_CREATE:
@@ -182,9 +186,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
-      // if (initial_size_create == NULL) {
-      //   general_exit(-1);
-      // }
       f->eax = syscall_create(file_create, initial_size_create);
       break;
     case SYS_OPEN:
@@ -202,7 +203,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_read == 1 || fd_read > 127) {
         general_exit(-1);
       }
-      // validate_ptr(buffer_read, size_read);
+      validate_ptr(buffer_read, size_read);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
       break;
     case SYS_FILESIZE:
