@@ -78,9 +78,13 @@ int syscall_filesize(int fd, struct thread* t) {
 }
 
 int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
+  char* buf = (char*)buffer;
   if (fd == 0) {
-    //not sure what to pass in
-    return input_getc();
+    unsigned i;
+    for (i = 0; i < size; i++) {
+      buf[i] = input_getc();
+    }
+    return i;
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
@@ -122,15 +126,7 @@ unsigned syscall_tell(int fd, struct thread* t) {
   return file_tell(file_struct);
 }
 
-void syscall_close(int fd, struct thread* t) {
-  struct file* file_struct = t->file_d[fd];
-  if (file_struct) {
-    file_close(file_struct);
-    remove_file_d(fd, t);
-  } else {
-    general_exit(-1);
-  }
-}
+void syscall_close(int fd, struct thread* t) { remove_file_d(fd, t); }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
   lock_acquire(&lock);
@@ -177,7 +173,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_write == 0 || fd_write > 127) {
         general_exit(-1);
       }
-      validate_ptr(buffer_write, size_write);
+      // validate_ptr(buffer_write, size_write);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
       break;
     case SYS_CREATE:
@@ -206,7 +202,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_read == 1 || fd_read > 127) {
         general_exit(-1);
       }
-      validate_ptr(buffer_read, size_read);
+      // validate_ptr(buffer_read, size_read);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
       break;
     case SYS_FILESIZE:

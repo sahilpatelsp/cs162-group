@@ -19,7 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-static struct semaphore temporary;
+//static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* cmdline, void (**eip)(void), void** esp);
 struct thread_data* get_child_data(tid_t tid);
@@ -46,7 +46,7 @@ tid_t process_execute(const char* args) {
   char* saveptr;
   tid_t tid;
 
-  sema_init(&temporary, 0);
+  // sema_init(&temporary, 0);
 
   //Copy of args for retrieval of file_name in call to thread_create
   args_copy = palloc_get_page(0);
@@ -125,18 +125,32 @@ static void start_process(void* args) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-  sema_down(&temporary);
-  return 0;
+  //sema_down(&temporary);
+  struct thread_data* child_data = get_child_data(child_tid);
+  if (child_data == NULL || child_data->wait) {
+    return -1;
+  }
+  child_data->wait = true;
+  sema_down(&(child_data->sema));
+  int exit_status;
+  lock_acquire(&(child_data->lock));
+  exit_status = child_data->exit_status;
+  child_data->ref_cnt--;
+  lock_release(&(child_data->lock));
+
+  if (child_data->ref_cnt == 0) {
+    list_remove(&(child_data->elem));
+    free(child_data);
+  }
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */
-void free_thread_data() {}
-
 void process_exit(void) {
   struct thread* cur = thread_current();
   uint32_t* pd;
 
-  bool free_thread_data = false;
   lock_acquire(&(cur->thread_data->lock));
   cur->thread_data->ref_cnt--;
   lock_release(&(cur->thread_data->lock));
@@ -171,7 +185,8 @@ void process_exit(void) {
     pagedir_activate(NULL);
     pagedir_destroy(pd);
   }
-  sema_up(&temporary);
+
+  // sema_up(&temporary);
 }
 
 /* Sets up the CPU for running user code in the current
