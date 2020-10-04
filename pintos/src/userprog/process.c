@@ -167,7 +167,7 @@ void process_exit(void) {
   lock_release(&(cur->thread_data->lock));
   sema_up(&(cur->thread_data->sema));
   if (cur->thread_data->ref_cnt == 0) {
-    free(cur->thread_data);
+    // free(cur->thread_data);
   }
 
   if (!list_empty(&cur->children_data)) {
@@ -179,7 +179,7 @@ void process_exit(void) {
       child_data->ref_cnt--;
       lock_release(&child_data->lock);
       if (child_data->ref_cnt == 0) {
-        free(child_data);
+        // free(child_data);
       }
     }
   }
