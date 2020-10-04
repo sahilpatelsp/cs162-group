@@ -54,14 +54,16 @@ tid_t process_execute(const char* args) {
 
   //Copy of args for retrieval of file_name in call to thread_create
   args_copy = palloc_get_page(0);
-  if (args_copy == NULL)
+  if (args_copy == NULL) {
     return TID_ERROR;
+  }
   strlcpy(args_copy, args, PGSIZE);
 
   //Second copy of args for argument to start_process in thread_create
   args_copy2 = palloc_get_page(0);
-  if (args_copy2 == NULL)
+  if (args_copy2 == NULL) {
     return TID_ERROR;
+  }
   strlcpy(args_copy2, args, PGSIZE);
 
   char* file_name = strtok_r(args_copy, " ", &saveptr);
@@ -158,12 +160,13 @@ void process_exit(void) {
   struct thread* cur = thread_current();
   uint32_t* pd;
 
+  printf("%s: exit(%d)\n", cur->name, cur->thread_data->exit_status);
   lock_acquire(&(cur->thread_data->lock));
   cur->thread_data->ref_cnt--;
   lock_release(&(cur->thread_data->lock));
   sema_up(&(cur->thread_data->sema));
   if (cur->thread_data->ref_cnt == 0) {
-    free(cur->thread_data);
+    // free(cur->thread_data);
   }
 
   if (!list_empty(&cur->children_data)) {
@@ -175,10 +178,17 @@ void process_exit(void) {
       child_data->ref_cnt--;
       lock_release(&child_data->lock);
       if (child_data->ref_cnt == 0) {
-        free(child_data);
+        // free(child_data);
       }
     }
   }
+
+  // for (int i = 0; i < 128; i++) {
+  //   if ((cur->file_d)[i] != NULL) {
+  //     remove_file_d(i, cur);
+  //   }
+  // }
+  // free(cur->file_d);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -383,7 +393,9 @@ bool load(const char* args, void (**eip)(void), void** esp) {
 
 done:
   /* We arrive here whether the load is successful or not. */
-  file_close(file);
+  if (file != NULL) {
+    file_close(file);
+  }
   return success;
 }
 

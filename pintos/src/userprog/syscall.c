@@ -48,7 +48,7 @@ void validate_str(void* str) {
 void general_exit(int status) {
   //barebone exit, don't know if we have to write anything, modify later
   thread_current()->thread_data->exit_status = status;
-  printf("%s: exit(%d)\n", &thread_current()->name, status);
+  // printf("%s: exit(%d)\n", &thread_current()->name, status);
   thread_exit();
 }
 
