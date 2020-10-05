@@ -142,20 +142,7 @@ int process_wait(tid_t child_tid) {
   }
   child_data->waited = true;
   sema_down(&(child_data->sema));
-  //int exit_status;
   int exit_status = child_data->exit_status;
-  // bool flag = false;
-  // lock_acquire(&(child_data->lock));
-  // child_data->ref_cnt--;
-  // if (child_data->ref_cnt == 0) {
-  //   flag = true;
-  // }
-  // lock_release(&(child_data->lock));
-  // // if (flag) {
-  // //   // list_remove(&(child_data->elem));
-  // //   // free(child_data);
-  // // }
-
   return exit_status;
 }
 
@@ -164,7 +151,6 @@ void process_exit(void) {
   // sema_up(&temporary);
   struct thread* cur = thread_current();
   uint32_t* pd;
-  // file_close(cur->executable);
   printf("%s: exit(%d)\n", cur->name, cur->thread_data->exit_status);
   bool flag = false;
   lock_acquire(&(cur->thread_data->lock));
@@ -173,7 +159,6 @@ void process_exit(void) {
     flag = true;
   }
   lock_release(&(cur->thread_data->lock));
-  sema_up(&(cur->thread_data->sema));
   if (flag) {
     free(cur->thread_data);
   }
@@ -194,7 +179,6 @@ void process_exit(void) {
       lock_release(&child_data->lock);
     }
     for (int j = 0; j < i; ++j) {
-      //list_remove(&((exited[j])->elem));
       free(exited[j]);
     }
   }
@@ -207,7 +191,6 @@ void process_exit(void) {
     }
     free(cur->file_d);
   }
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -223,7 +206,7 @@ void process_exit(void) {
     pagedir_activate(NULL);
     pagedir_destroy(pd);
   }
-
+  sema_up(&(cur->thread_data->sema));
   // sema_up(&temporary);
 }
 
