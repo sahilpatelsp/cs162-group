@@ -162,9 +162,9 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Allocate thread. */
   t = palloc_get_page(PAL_ZERO);
   struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
-  if (t == NULL || thread_data == NULL)
+  if (t == NULL || thread_data == NULL) {
     return TID_ERROR;
-
+  }
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
@@ -180,7 +180,9 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 
   struct thread* parent = thread_current();
   list_push_back(&(parent->children_data), &(t->thread_data->elem));
+  lock_acquire(&thread_data->lock);
   t->thread_data->ref_cnt++;
+  lock_release(&thread_data->lock);
 
   init_file_d(t);
 

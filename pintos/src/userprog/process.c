@@ -131,7 +131,7 @@ static void start_process(void* args) {
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-//Dummy Comment
+
 int process_wait(tid_t child_tid) {
   // sema_down(&temporary);
   struct thread* curr = thread_current();
@@ -143,11 +143,14 @@ int process_wait(tid_t child_tid) {
   sema_down(&(child_data->sema));
   //int exit_status;
   int exit_status = child_data->exit_status;
+  bool flag = false;
   lock_acquire(&(child_data->lock));
-  //exit_status = child_data->exit_status;
   child_data->ref_cnt--;
-  lock_release(&(child_data->lock));
   if (child_data->ref_cnt == 0) {
+    flag = true;
+  }
+  lock_release(&(child_data->lock));
+  if (flag) {
     list_remove(&(child_data->elem));
     // free(child_data);
   }
@@ -160,30 +163,42 @@ void process_exit(void) {
   // sema_up(&temporary);
   struct thread* cur = thread_current();
   uint32_t* pd;
-
   file_close(cur->executable);
   printf("%s: exit(%d)\n", cur->name, cur->thread_data->exit_status);
+  bool flag = false;
+  // printf('yole1.5');
   lock_acquire(&(cur->thread_data->lock));
   cur->thread_data->ref_cnt--;
+  if (cur->thread_data->ref_cnt == 0) {
+    flag = true;
+  }
   lock_release(&(cur->thread_data->lock));
   sema_up(&(cur->thread_data->sema));
-  if (cur->thread_data->ref_cnt == 0) {
+  // printf('yolo2\n');
+  if (flag) {
     // free(cur->thread_data);
   }
+  // printf('yolo3\n');
 
   if (!list_empty(&cur->children_data)) {
     struct list_elem* e;
+    // printf('yolo3.5\n');
     for (e = list_begin(&cur->children_data); e != list_end(&cur->children_data);
          e = list_next(e)) {
       struct thread_data* child_data = list_entry(e, struct thread_data, elem);
+      bool child_flag = false;
       lock_acquire(&child_data->lock);
       child_data->ref_cnt--;
-      lock_release(&child_data->lock);
       if (child_data->ref_cnt == 0) {
+        child_flag = true;
+      }
+      lock_release(&child_data->lock);
+      if (child_flag) {
         // free(child_data);
       }
     }
   }
+  // printf('yolo4\n');
   // if (cur->file_d != NULL) {
   //   for (int i = 2; i < 128; i++) {
   //     printf("yole%d\n", i);
