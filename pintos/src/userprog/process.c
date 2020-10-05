@@ -4,6 +4,7 @@
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "filesys/file.h"
 #include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
@@ -143,17 +144,17 @@ int process_wait(tid_t child_tid) {
   sema_down(&(child_data->sema));
   //int exit_status;
   int exit_status = child_data->exit_status;
-  bool flag = false;
-  lock_acquire(&(child_data->lock));
-  child_data->ref_cnt--;
-  if (child_data->ref_cnt == 0) {
-    flag = true;
-  }
-  lock_release(&(child_data->lock));
-  if (flag) {
-    list_remove(&(child_data->elem));
-    // free(child_data);
-  }
+  // bool flag = false;
+  // lock_acquire(&(child_data->lock));
+  // child_data->ref_cnt--;
+  // if (child_data->ref_cnt == 0) {
+  //   flag = true;
+  // }
+  // lock_release(&(child_data->lock));
+  // // if (flag) {
+  // //   // list_remove(&(child_data->elem));
+  // //   // free(child_data);
+  // // }
 
   return exit_status;
 }
@@ -163,10 +164,9 @@ void process_exit(void) {
   // sema_up(&temporary);
   struct thread* cur = thread_current();
   uint32_t* pd;
-  file_close(cur->executable);
+  // file_close(cur->executable);
   printf("%s: exit(%d)\n", cur->name, cur->thread_data->exit_status);
   bool flag = false;
-  // printf('yole1.5');
   lock_acquire(&(cur->thread_data->lock));
   cur->thread_data->ref_cnt--;
   if (cur->thread_data->ref_cnt == 0) {
@@ -174,43 +174,39 @@ void process_exit(void) {
   }
   lock_release(&(cur->thread_data->lock));
   sema_up(&(cur->thread_data->sema));
-  // printf('yolo2\n');
   if (flag) {
-    // free(cur->thread_data);
+    free(cur->thread_data);
   }
-  // printf('yolo3\n');
 
   if (!list_empty(&cur->children_data)) {
     struct list_elem* e;
-    // printf('yolo3.5\n');
+    struct thread_data* exited[list_size(&(cur->children_data))];
+    int i = 0;
     for (e = list_begin(&cur->children_data); e != list_end(&cur->children_data);
          e = list_next(e)) {
       struct thread_data* child_data = list_entry(e, struct thread_data, elem);
-      bool child_flag = false;
       lock_acquire(&child_data->lock);
       child_data->ref_cnt--;
       if (child_data->ref_cnt == 0) {
-        child_flag = true;
+        exited[i] = child_data;
+        ++i;
       }
       lock_release(&child_data->lock);
-      if (child_flag) {
-        // free(child_data);
-      }
+    }
+    for (int j = 0; j < i; ++j) {
+      //list_remove(&((exited[j])->elem));
+      free(exited[j]);
     }
   }
-  // printf('yolo4\n');
-  // if (cur->file_d != NULL) {
-  //   for (int i = 2; i < 128; i++) {
-  //     printf("yole%d\n", i);
-  //     if ((cur->file_d)[i]) {
-  //       printf("HI");
-  //       remove_file_d(i, cur);
-  //     }
-  //     printf("NO");
-  //   }
-  //   printf("yole3");
-  //   free(cur->file_d);
-  // }
+  if (cur->file_d) {
+    for (int x = 2; x < 128; x++) {
+      struct file* temp = (cur->file_d)[x];
+      if (temp) {
+        file_close(temp);
+      }
+    }
+    free(cur->file_d);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -344,7 +340,7 @@ bool load(const char* args, void (**eip)(void), void** esp) {
   }
 
   add_file_d(file, thread_current());
-  thread_current()->executable = file;
+  // thread_current()->executable = file;
   file_deny_write(file);
 
   /* Read and verify executable header. */

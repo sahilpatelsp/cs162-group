@@ -523,8 +523,11 @@ static tid_t allocate_tid(void) {
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
 void init_file_d(struct thread* t) {
-  struct file* files = malloc(sizeof(struct file*) * 128);
-  t->file_d = &files;
+  struct file** files = (struct file**)malloc(sizeof(struct file*) * 128);
+  for (int i = 0; i < 128; i++) {
+    files[i] = NULL;
+  }
+  t->file_d = files;
 }
 
 int add_file_d(struct file* file, struct thread* t) {
