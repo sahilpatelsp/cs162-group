@@ -20,7 +20,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-// static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load(const char* cmdline, void (**eip)(void), void** esp);
 struct thread_data* get_child_data(tid_t tid);
@@ -50,8 +49,6 @@ tid_t process_execute(const char* args) {
   char* args_copy2;
   char* saveptr;
   tid_t tid;
-
-  // sema_init(&temporary, 0);
 
   //Copy of args for retrieval of file_name in call to thread_create
   args_copy = palloc_get_page(0);
@@ -109,8 +106,6 @@ static void start_process(void* args) {
     thread_exit();
   sema_up(&(thread_data->sema));
 
-  // thread_exit();
-
   /* If load failed, quit. */
 
   /* Start the user process by simulating a return from an
@@ -148,7 +143,6 @@ int process_wait(tid_t child_tid) {
 
 /* Free the current process's resources. */
 void process_exit(void) {
-  // sema_up(&temporary);
   struct thread* cur = thread_current();
   uint32_t* pd;
   printf("%s: exit(%d)\n", cur->name, cur->thread_data->exit_status);
@@ -207,7 +201,6 @@ void process_exit(void) {
     pagedir_destroy(pd);
   }
   sema_up(&(cur->thread_data->sema));
-  // sema_up(&temporary);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -323,7 +316,6 @@ bool load(const char* args, void (**eip)(void), void** esp) {
   }
 
   add_file_d(file, thread_current());
-  // thread_current()->executable = file;
   file_deny_write(file);
 
   /* Read and verify executable header. */
@@ -516,6 +508,7 @@ static bool setup_stack(void** esp, char* args) {
 
       uint8_t* sp = (uint8_t*)PHYS_BASE;
       token = strtok_r(args, " ", &saveptr);
+      //Place words onto stack
       while (token != NULL) {
         size_t length = strlen(token) + 1;
         sp -= length;
@@ -525,19 +518,22 @@ static bool setup_stack(void** esp, char* args) {
         token = strtok_r(NULL, " ", &saveptr);
       }
       argv[argc] = NULL;
-      uint8_t align = (uint8_t)((sp - 4 * (argc + 1) - 8)) % 16;
+      uint8_t align = (uint8_t)((sp - 4 * (argc + 1) - 8)) %
+                      16; // 16-byte align sp, accounting for future decrements
       sp -= align;
 
+      // We start casting sp to uint32_t to decrement by 4 bytes instead of 1 byte.
       for (int i = argc; i >= 0; i--) {
         sp -= 4;
-        *(uint32_t*)sp = (uint32_t)argv[i];
+        *(uint32_t*)sp = (uint32_t)argv[i]; // Push addresses of argv[i] in reverse order onto stack
       }
       sp -= 4;
-      *(uint32_t*)sp = (uint32_t)(sp + 4);
+      *(uint32_t*)sp = (uint32_t)(sp + 4); // Push address of argv itself onto stack
       sp -= 4;
-      *(uint32_t*)sp = (uint32_t)(argc);
+      *(uint32_t*)sp = (uint32_t)(argc); // Push argc onto stack
       sp -= 4;
-      *(uint32_t*)sp = (void*)NULL;
+      // NEED TO BE 16 BYTE ALIGNED AT THIS POINT
+      *(uint32_t*)sp = (void*)NULL; // Push arbitrary RA onto stack
       *esp = sp;
     } else
       palloc_free_page(kpage);

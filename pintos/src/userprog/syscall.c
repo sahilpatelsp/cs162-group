@@ -8,8 +8,6 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
-//Dummy comment
-
 struct lock lock;
 static void syscall_handler(struct intr_frame*);
 bool syscall_create(const char* file, unsigned initial_size);
@@ -28,6 +26,10 @@ void syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+/*
+* validate_ptr() is a helper function for validating arguments to ensure that pointers to syscall arguments 
+* are not null and point to user virtual address space.
+*/
 void validate_ptr(void* ptr, int size) {
   if (ptr == NULL || !is_user_vaddr(ptr) || !pagedir_get_page(thread_current()->pagedir, ptr) ||
       !is_user_vaddr(ptr + size - 1) ||
@@ -36,6 +38,9 @@ void validate_ptr(void* ptr, int size) {
   }
 }
 
+/*
+* validate_str() validates the string by validating the pointer to the string and the location of the string itself.
+*/
 void validate_str(void* str) {
   char* strng = (char*)str;
   validate_ptr(strng, 1);
@@ -45,10 +50,13 @@ void validate_str(void* str) {
   }
 }
 
+/*
+* general_exit() is a helper function that is called in the case of a syscall failure/invalid inputs.
+* It's main purpose is to ensure that the exit status of the current thread has been updated in the thread's
+* thread_data struct, so that a parent waiting on a child is able to retrieve its exit status.
+*/
 void general_exit(int status) {
-  //barebone exit, don't know if we have to write anything, modify later
   thread_current()->thread_data->exit_status = status;
-  // printf("%s: exit(%d)\n", &thread_current()->name, status);
   thread_exit();
 }
 
@@ -73,6 +81,7 @@ int syscall_open(const char* file, struct thread* t) {
 int syscall_filesize(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (!file_struct) {
+    lock_release(&lock);
     general_exit(-1);
   }
   return file_length(file_struct);
@@ -101,6 +110,7 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
+      lock_release(&lock);
       general_exit(-1);
       return -1;
     }
@@ -114,6 +124,7 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
   if (file_struct) {
     file_seek(file_struct, position);
   } else {
+    lock_release(&lock);
     general_exit(-1);
   }
 }
@@ -121,6 +132,7 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
 unsigned syscall_tell(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (!file_struct) {
+    lock_release(&lock);
     general_exit(-1);
   }
   return file_tell(file_struct);
@@ -128,19 +140,14 @@ unsigned syscall_tell(int fd, struct thread* t) {
 
 void syscall_close(int fd, struct thread* t) { remove_file_d(fd, t); }
 
+/*
+  * The syscall_handler function handles the syscall request by switching over args[0]. In the case of 
+  * a file operation, the function acquires/releases a lock for the sake of mutual exclusion. It validates 
+  * all the arguments, calls a respective syscall helper function, and stores the return value in eax.
+  */
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
   validate_ptr(args, 4);
-
-  /*
-   * The following print statement, if uncommented, will print out the syscall
-   * number whenever a process enters a system call. You might find it useful
-   * when debugging. It will cause tests to fail, however, so you should not
-   * include it in your final submission.
-   */
-
-  /* printf("System call number: %d\n", args[0]); */
-
   switch (args[0]) {
     case SYS_PRACTICE:
       validate_ptr(args + 1, 4);
@@ -165,7 +172,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       f->eax = process_wait((int)args[1]);
       break;
     case SYS_WRITE:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
@@ -176,28 +182,28 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       validate_ptr(buffer_write, size_write);
+      lock_acquire(&lock);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
       lock_release(&lock);
       break;
     case SYS_CREATE:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
+      lock_acquire(&lock);
       f->eax = syscall_create(file_create, initial_size_create);
       lock_release(&lock);
       break;
     case SYS_OPEN:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_str(args[1]);
+      lock_acquire(&lock);
       f->eax = syscall_open((char*)args[1], thread_current());
       lock_release(&lock);
       break;
     case SYS_READ:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       validate_ptr(args + 3, 4);
@@ -208,27 +214,28 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       validate_ptr(buffer_read, size_read);
+      lock_acquire(&lock);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
       lock_release(&lock);
       break;
     case SYS_FILESIZE:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       if (args[1] < 0 || args[1] > 127) {
+        lock_release(&lock);
         general_exit(-1);
       }
+      lock_acquire(&lock);
       f->eax = syscall_filesize(args[1], thread_current());
       lock_release(&lock);
       break;
     case SYS_REMOVE:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_str((args[1]));
+      lock_acquire(&lock);
       f->eax = syscall_remove((char*)args[1]);
       lock_release(&lock);
       break;
     case SYS_SEEK:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
       int fd_seek = args[1];
@@ -236,34 +243,31 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_seek < 0 || fd_seek > 127) {
         general_exit(-1);
       }
+      lock_acquire(&lock);
       syscall_seek(fd_seek, position, thread_current());
       lock_release(&lock);
       break;
     case SYS_TELL:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       int fd_tell = args[1];
       if (fd_tell < 0 || fd_tell > 127) {
         general_exit(-1);
       }
+      lock_acquire(&lock);
       f->eax = syscall_tell(fd_tell, thread_current());
       lock_release(&lock);
       break;
     case SYS_CLOSE:
-      lock_acquire(&lock);
       validate_ptr(args + 1, 4);
       int fd_close = args[1];
       if (fd_close < 2 || fd_close > 127) {
         general_exit(-1);
       }
+      lock_acquire(&lock);
       syscall_close(fd_close, thread_current());
       lock_release(&lock);
       break;
     default:
       break;
   }
-
-  // Iterate through args and set them to variables
-  // Call corresponding function and store return value
-  //return the value
 }

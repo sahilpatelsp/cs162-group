@@ -167,8 +167,14 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   }
   /* Initialize thread. */
   init_thread(t, name, priority);
+  bool success = init_file_d(t);
+  if (!success) {
+    palloc_free_page(t);
+    return TID_ERROR;
+  }
+
   tid = t->tid = allocate_tid();
-  ////////////////////////
+
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
   thread_data->exit_status = -1;
@@ -183,8 +189,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   lock_acquire(&thread_data->lock);
   t->thread_data->ref_cnt++;
   lock_release(&thread_data->lock);
-
-  init_file_d(t);
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -522,14 +526,25 @@ static tid_t allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
-void init_file_d(struct thread* t) {
+/* Malloc a file descriptor array to hold pointers to the files after
+   files have been opened. Each file descriptor value is represented 
+   by the index of the array. A maximum of 128 files are allowed to be
+   open at any given time. */
+bool init_file_d(struct thread* t) {
   struct file** files = (struct file**)malloc(sizeof(struct file*) * 128);
+  if (files == NULL) {
+    return false;
+    printf("HELLO");
+  }
   for (int i = 0; i < 128; i++) {
     files[i] = NULL;
   }
   t->file_d = files;
+  return true;
 }
 
+/* Assign file descriptor to a file for a thread t and
+   return the index to represent file descriptor */
 int add_file_d(struct file* file, struct thread* t) {
   for (int i = 2; i < 128; i++) {
     if (!(t->file_d)[i]) {
@@ -540,4 +555,6 @@ int add_file_d(struct file* file, struct thread* t) {
   return -1;
 }
 
+/* Removes file descriptor from a given thread's file_d struct 
+   to close the file descriptor. */
 void remove_file_d(int fd, struct thread* t) { (t->file_d)[fd] = NULL; }

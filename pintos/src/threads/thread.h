@@ -151,7 +151,7 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 //Helper Functions for file descriptor array
-void init_file_d(
+bool init_file_d(
     struct thread*
         t); //Initialize file descriptor array with 0 and 1 set to dummy values and rest with value null
 void remove_file_d(int fd, struct thread* t); //Remove pointer to file* struct at given fd
