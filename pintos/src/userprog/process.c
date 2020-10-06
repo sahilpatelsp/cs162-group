@@ -19,6 +19,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char* cmdline, void (**eip)(void), void** esp);
@@ -65,22 +66,35 @@ tid_t process_execute(const char* args) {
   strlcpy(args_copy2, args, PGSIZE);
 
   char* file_name = strtok_r(args_copy, " ", &saveptr);
+
+  if (!filesys_open(file_name)) {
+    palloc_free_page(args_copy);
+    palloc_free_page(args_copy2);
+    return TID_ERROR;
+  }
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, args_copy2);
 
   if (tid == TID_ERROR) {
     palloc_free_page(args_copy);
+    palloc_free_page(args_copy2);
     return TID_ERROR;
   }
 
   struct thread_data* child_data = get_child_data(tid);
   if (child_data == NULL) {
+    palloc_free_page(args_copy);
+    palloc_free_page(args_copy2);
     return TID_ERROR;
   }
   sema_down(&(child_data->sema));
   if (child_data->loaded) {
+    palloc_free_page(args_copy);
+    palloc_free_page(args_copy2);
     return tid;
   } else {
+    palloc_free_page(args_copy);
+    palloc_free_page(args_copy2);
     return TID_ERROR;
   }
 }
@@ -99,11 +113,12 @@ static void start_process(void* args) {
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load(args_cast, &if_.eip, &if_.esp);
-  palloc_free_page(args_cast);
+  // palloc_free_page(args_cast);
   struct thread_data* thread_data = thread_current()->thread_data;
   thread_data->loaded = success;
-  if (!success)
+  if (!success) {
     thread_exit();
+  }
   sema_up(&(thread_data->sema));
 
   /* If load failed, quit. */
@@ -138,6 +153,17 @@ int process_wait(tid_t child_tid) {
   child_data->waited = true;
   sema_down(&(child_data->sema));
   int exit_status = child_data->exit_status;
+  bool flag = false;
+  lock_acquire(&(child_data->lock));
+  child_data->ref_cnt--;
+  if (child_data->ref_cnt == 0) {
+    flag = true;
+  }
+  lock_release(&(child_data->lock));
+  if (flag) {
+    list_remove(&(child_data->elem));
+    free(child_data);
+  }
   return exit_status;
 }
 
@@ -387,6 +413,7 @@ bool load(const char* args, void (**eip)(void), void** esp) {
 
 done:
   /* We arrive here whether the load is successful or not. */
+  palloc_free_page(args_copy);
   return success;
 }
 
