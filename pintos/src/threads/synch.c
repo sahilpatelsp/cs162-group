@@ -285,6 +285,10 @@ void cond_wait(struct condition* cond, struct lock* lock) {
   lock_acquire(lock);
 }
 
+/*
+  Semaphore comparator function that based on the effective priority of the semaphores, calculated
+  as the max priority of threads waiting on the semaphore.
+*/
 bool less_semaphore(const struct list_elem* et1, const struct list_elem* et2, void* aux) {
   struct semaphore_elem* s1 = list_entry(et1, struct semaphore_elem, elem);
   struct semaphore_elem* s2 = list_entry(et2, struct semaphore_elem, elem);

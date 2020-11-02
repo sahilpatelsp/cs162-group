@@ -76,29 +76,14 @@ int64_t timer_ticks(void) {
    should be a value once returned by timer_ticks(). */
 int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 
-// static bool less_list(const struct list_elem *et1,
-//                       const struct list_elem *et2, void *aux) {
-//   struct thread* t1 = list_entry(et1, struct thread, elem);
-//   struct thread* t2 = list_entry(et2, struct thread, elem);
-//   if (t1->wake_time < t2->wake_time)
-//     return true;
-//   return false;
-// }
-
-/* Sleeps for approximately TICKS timer ticks.  Interrupts must
+/* Sleeps for approximately TICKS timer ticks, and adds thread to sleep_list. Interrupts must
    be turned on. */
 void timer_sleep(int64_t ticks) {
-  int64_t start = timer_ticks();
-  thread_current()->wake_time = start + ticks;
   enum intr_level old_level = intr_disable();
+  thread_current()->wake_time = timer_ticks() + ticks;
   list_push_back(&sleep_list, &(thread_current()->sleep_elem));
   thread_block();
   intr_set_level(old_level);
-  /////////
-
-  // ASSERT(intr_get_level() == INTR_ON);
-  // while (timer_elapsed(start) < ticks)
-  //   thread_yield();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -143,19 +128,21 @@ void timer_ndelay(int64_t ns) { real_time_delay(ns, 1000 * 1000 * 1000); }
 /* Prints timer statistics. */
 void timer_print_stats(void) { printf("Timer: %" PRId64 " ticks\n", timer_ticks()); }
 
-/* Timer interrupt handler. */
+/* Timer interrupt handler. Iterates through sleep_list and checks whether t->wake_time <= ticks; if so, unblocks thread and 
+   removes it from sleep_list. */
 static void timer_interrupt(struct intr_frame* args UNUSED) {
   ticks++;
   struct list_elem* e = list_begin(&sleep_list);
+  struct list_elem* temp;
   while (e != list_end(&sleep_list)) {
     struct thread* t = list_entry(e, struct thread, sleep_elem);
-    if (t->wake_time <= ticks) {
-      struct list_elem* temp = e;
+    if (t->wake_time > ticks) {
+      e = list_next(e);
+    } else {
+      thread_unblock(t);
+      temp = e;
       e = list_next(e);
       list_remove(temp);
-      thread_unblock(t);
-    } else {
-      e = list_next(e);
     }
   }
   thread_tick();

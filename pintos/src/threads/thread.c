@@ -78,6 +78,13 @@ static tid_t allocate_tid(void);
 void thread_update_priority(struct thread* t, int priority);
 bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux);
 
+/* This recursive function updates the effective priority of a thread through the following:
+   (1) Set maximum priority to be the maximum priority of the threads waiting on locks that the thread is holding
+   (2) Compare the maximum priority of the threads waiting on locks that the thread is holding with the thread's base priority
+    a. If maximum priority = thread's priority (Nothing has changed), exit the function
+   (3) Update thread's effective priority
+   (4) Call function on the thread holding the lock that the thread is waiting on.
+*/
 void thread_update_priority(struct thread* t, int start_priority) {
   if (t == NULL) {
     return;
@@ -86,7 +93,7 @@ void thread_update_priority(struct thread* t, int start_priority) {
   int waiter_priority;
   struct list* waiters;
   struct lock* lock;
-  // Calculating effective priority of thread using base priority of thread and max of priorities of threads that are waiting on the locks the thread is holding
+  // (1)
   for (struct list_elem* h = list_begin(&t->holding); h != list_end(&t->holding);
        h = list_next(h)) {
     lock = list_entry(h, struct lock, elem);
@@ -99,15 +106,16 @@ void thread_update_priority(struct thread* t, int start_priority) {
       }
     }
   }
-
+  // (2)
   if (t->priority > max_priority) {
     max_priority = t->priority;
   }
   if (max_priority == t->effective) {
     return;
   }
-  // Updating the priority of the thread holding the lock that the thread is waiting on
+  // (3)
   t->effective = max_priority;
+  // (4)
   if (t->waiting) {
     thread_update_priority(t->waiting->holder, PRI_MIN - 1);
   }
@@ -196,7 +204,6 @@ void thread_print_stats(void) {
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
-  // printf("begin thread_create\n");
   struct thread* t;
   struct kernel_thread_frame* kf;
   struct switch_entry_frame* ef;
@@ -257,7 +264,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Add to run queue. */
   thread_unblock(t);
   thread_yield();
-  // printf("end thread_create\n");
   return tid;
 }
 
@@ -366,13 +372,12 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to NEW_PRIORITY using thread_update_priority() */
 void thread_set_priority(int new_priority) {
   enum intr_level old_level = intr_disable();
-  struct thread* t = thread_current();
-  t->priority = new_priority;
-  int effective = t->effective;
-  thread_update_priority(t, PRI_MIN - 1);
+  thread_current()->priority = new_priority;
+  int effective = thread_current()->effective;
+  thread_update_priority(thread_current(), PRI_MIN - 1);
   intr_set_level(old_level);
   thread_yield();
 }
@@ -595,6 +600,8 @@ static tid_t allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
+/* Thread comparator function that compares the effective priority of two threads, used for list_max()
+*/
 bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux) {
   struct thread* t1 = list_entry(et1, struct thread, elem);
   struct thread* t2 = list_entry(et2, struct thread, elem);
