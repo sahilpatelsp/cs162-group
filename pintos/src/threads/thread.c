@@ -79,21 +79,27 @@ void thread_update_priority(struct thread* t, int priority);
 bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux);
 
 void thread_update_priority(struct thread* t, int start_priority) {
+  if (t == NULL) {
+    return;
+  }
   int max_priority = start_priority;
   int waiter_priority;
   struct list* waiters;
   struct lock* lock;
   // Calculating effective priority of thread using base priority of thread and max of priorities of threads that are waiting on the locks the thread is holding
-  for (struct list_elem* h = list_begin(&t->holding); h != list_begin(&t->holding);
+  for (struct list_elem* h = list_begin(&t->holding); h != list_end(&t->holding);
        h = list_next(h)) {
     lock = list_entry(h, struct lock, elem);
     waiters = &(lock->semaphore.waiters);
-    waiter_priority =
-        (list_entry(list_max(waiters, less_priority, NULL), struct thread, elem))->effective;
-    if (waiter_priority > max_priority) {
-      max_priority = waiter_priority;
+    if (!list_empty(waiters)) {
+      waiter_priority =
+          (list_entry(list_max(waiters, less_priority, NULL), struct thread, elem))->effective;
+      if (waiter_priority > max_priority) {
+        max_priority = waiter_priority;
+      }
     }
   }
+
   if (t->priority > max_priority) {
     max_priority = t->priority;
   }
