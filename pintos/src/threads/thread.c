@@ -368,7 +368,6 @@ void thread_foreach(thread_action_func* func, void* aux) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-  // printf("THREAD SET PRIORITY START\n");
   enum intr_level old_level = intr_disable();
   struct thread* t = thread_current();
   t->priority = new_priority;
@@ -376,11 +375,6 @@ void thread_set_priority(int new_priority) {
   thread_update_priority(t, PRI_MIN - 1);
   intr_set_level(old_level);
   thread_yield();
-  // if (t->effective < effective) {
-  //   printf("pre-empting\n");
-  //   thread_yield();
-  // }
-  // printf("THREAD SET PRIORITY END\n");
 }
 
 /* Returns the current thread's priority. */
@@ -470,7 +464,6 @@ static bool is_thread(struct thread* t) { return t != NULL && t->magic == THREAD
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void init_thread(struct thread* t, const char* name, int priority) {
-  // printf("INIT THREAD START\n");
   enum intr_level old_level;
 
   ASSERT(t != NULL);
@@ -494,7 +487,6 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
   intr_set_level(old_level);
-  // printf("INIT THREAD END\n");
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -514,7 +506,6 @@ static void* alloc_frame(struct thread* t, size_t size) {
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
 static struct thread* next_thread_to_run(void) {
-  // printf("NEXT THREAD TO RUN START\n");
   if (list_empty(&ready_list)) {
     return idle_thread;
   } else {

@@ -57,7 +57,6 @@ void sema_init(struct semaphore* sema, unsigned value) {
    thread will probably turn interrupts back on. */
 void sema_down(struct semaphore* sema) {
   enum intr_level old_level;
-  // printf("SEMA DOWN START\n");
   ASSERT(sema != NULL);
   ASSERT(!intr_context());
 
@@ -67,7 +66,6 @@ void sema_down(struct semaphore* sema) {
     thread_block();
   }
   sema->value--;
-  // printf("SEMA DOWN END\n");
   intr_set_level(old_level);
 }
 
@@ -122,7 +120,7 @@ void sema_self_test(void) {
   struct semaphore sema[2];
   int i;
 
-  // printf("Testing semaphores...");
+  printf("Testing semaphores...");
   sema_init(&sema[0], 0);
   sema_init(&sema[1], 0);
   thread_create("sema-test", PRI_DEFAULT, sema_test_helper, &sema);
@@ -130,7 +128,7 @@ void sema_self_test(void) {
     sema_up(&sema[0]);
     sema_down(&sema[1]);
   }
-  // printf("done.\n");
+  printf("done.\n");
 }
 
 /* Thread function used by sema_self_test(). */
@@ -189,7 +187,6 @@ void lock_acquire(struct lock* lock) {
     list_push_back(&(t->holding), &(lock->elem));
   }
   intr_set_level(old_level);
-  // printf("end lock_acquire\n");
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -323,8 +320,7 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
   ASSERT(lock_held_by_current_thread(lock));
 
   if (!list_empty(&cond->waiters)) {
-    struct list_elem* max_sema =
-        list_max(&cond->waiters, less_semaphore, NULL); //list_pop_front(&cond->waiters);
+    struct list_elem* max_sema = list_max(&cond->waiters, less_semaphore, NULL);
     list_remove(max_sema);
     struct semaphore_elem* sema = list_entry(max_sema, struct semaphore_elem, elem);
     sema_up(&sema->semaphore);
