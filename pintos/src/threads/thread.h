@@ -92,6 +92,11 @@ struct thread {
   struct list_elem allelem; /* List element for all threads list. */
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List elemt. */
+  struct list_elem sleep_elem;
+  int64_t wake_time;
+  int effective;
+  struct list holding;
+  struct lock* waiting;
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
   struct file** file_d;
@@ -100,9 +105,6 @@ struct thread {
   struct thread_data* thread_data;
   struct list children_data;
 #endif
-  struct list_elem sleep_elem;
-  int64_t wake_time;
-  int effective;
 
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
@@ -153,6 +155,9 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
+
+void thread_update_priority(struct thread* t, int start_priority);
+bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux);
 #ifdef USERPROG
 //Helper Functions for file descriptor array
 bool init_file_d(

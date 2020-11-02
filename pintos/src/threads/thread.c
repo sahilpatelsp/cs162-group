@@ -75,6 +75,37 @@ static void* alloc_frame(struct thread*, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread* prev);
 static tid_t allocate_tid(void);
+void thread_update_priority(struct thread* t, int priority);
+bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux);
+
+void thread_update_priority(struct thread* t, int start_priority) {
+  int max_priority = start_priority;
+  int waiter_priority;
+  struct list* waiters;
+  struct lock* lock;
+  // Calculating effective priority of thread using base priority of thread and max of priorities of threads that are waiting on the locks the thread is holding
+  for (struct list_elem* h = list_begin(&t->holding); h != list_begin(&t->holding);
+       h = list_next(h)) {
+    lock = list_entry(h, struct lock, elem);
+    waiters = &(lock->semaphore.waiters);
+    waiter_priority =
+        (list_entry(list_max(waiters, less_priority, NULL), struct thread, elem))->effective;
+    if (waiter_priority > max_priority) {
+      max_priority = waiter_priority;
+    }
+  }
+  if (t->priority > max_priority) {
+    max_priority = t->priority;
+  }
+  if (max_priority == t->effective) {
+    return;
+  }
+  // Updating the priority of the thread holding the lock that the thread is waiting on
+  t->effective = max_priority;
+  if (t->waiting) {
+    thread_update_priority(t->waiting->holder, PRI_MIN - 1);
+  }
+}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -159,6 +190,7 @@ void thread_print_stats(void) {
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
+  // printf("begin thread_create\n");
   struct thread* t;
   struct kernel_thread_frame* kf;
   struct switch_entry_frame* ef;
@@ -186,8 +218,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   }
 #endif
   tid = t->tid = allocate_tid();
-  t->effective = priority;
-  t->priority = priority;
 #ifdef USERPROG
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
@@ -220,6 +250,8 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 
   /* Add to run queue. */
   thread_unblock(t);
+  thread_yield();
+  // printf("end thread_create\n");
   return tid;
 }
 
@@ -329,10 +361,24 @@ void thread_foreach(thread_action_func* func, void* aux) {
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void thread_set_priority(int new_priority) { thread_current()->priority = new_priority; }
+void thread_set_priority(int new_priority) {
+  // printf("THREAD SET PRIORITY START\n");
+  enum intr_level old_level = intr_disable();
+  struct thread* t = thread_current();
+  t->priority = new_priority;
+  int effective = t->effective;
+  thread_update_priority(t, PRI_MIN - 1);
+  intr_set_level(old_level);
+  thread_yield();
+  // if (t->effective < effective) {
+  //   printf("pre-empting\n");
+  //   thread_yield();
+  // }
+  // printf("THREAD SET PRIORITY END\n");
+}
 
 /* Returns the current thread's priority. */
-int thread_get_priority(void) { return thread_current()->priority; }
+int thread_get_priority(void) { return thread_current()->effective; }
 
 /* Sets the current thread's nice value to NICE. */
 void thread_set_nice(int nice UNUSED) { /* Not yet implemented. */
@@ -418,6 +464,7 @@ static bool is_thread(struct thread* t) { return t != NULL && t->magic == THREAD
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void init_thread(struct thread* t, const char* name, int priority) {
+  // printf("INIT THREAD START\n");
   enum intr_level old_level;
 
   ASSERT(t != NULL);
@@ -431,6 +478,9 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->wake_time = 0;
+  t->effective = priority;
+  list_init(&(t->holding));
+  t->waiting = NULL;
 #ifdef USERPROG
   list_init(&(t->children_data));
 #endif
@@ -438,6 +488,7 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
   intr_set_level(old_level);
+  // printf("INIT THREAD END\n");
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -457,10 +508,14 @@ static void* alloc_frame(struct thread* t, size_t size) {
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
 static struct thread* next_thread_to_run(void) {
-  if (list_empty(&ready_list))
+  // printf("NEXT THREAD TO RUN START\n");
+  if (list_empty(&ready_list)) {
     return idle_thread;
-  else
-    return list_entry(list_pop_front(&ready_list), struct thread, elem);
+  } else {
+    struct list_elem* e = list_max(&ready_list, less_priority, NULL);
+    list_remove(e);
+    return list_entry(e, struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -543,6 +598,15 @@ static tid_t allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
+bool less_priority(const struct list_elem* et1, const struct list_elem* et2, void* aux) {
+  struct thread* t1 = list_entry(et1, struct thread, elem);
+  struct thread* t2 = list_entry(et2, struct thread, elem);
+  if (t1->effective < t2->effective) {
+    return true;
+  }
+  return false;
+}
+
 #ifdef USERPROG
 /* Malloc a file descriptor array to hold pointers to the files after
     files have been opened. Each file descriptor value is represented 
@@ -552,7 +616,6 @@ bool init_file_d(struct thread* t) {
   struct file** files = (struct file**)malloc(sizeof(struct file*) * 128);
   if (files == NULL) {
     return false;
-    printf("HELLO");
   }
   for (int i = 0; i < 128; i++) {
     files[i] = NULL;
