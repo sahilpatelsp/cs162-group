@@ -44,6 +44,12 @@ struct kernel_thread_frame {
   void* aux;             /* Auxiliary data for function. */
 };
 
+/*List of locks current thread is holding*/
+//struct list holding;
+
+/*Pointer to lock that current thread is waiting on, if any*/
+//struct lock* waiting;
+
 /* Statistics. */
 static long long idle_ticks;   /* # of timer ticks spent idle. */
 static long long kernel_ticks; /* # of timer ticks in kernel threads. */
@@ -161,20 +167,28 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   ASSERT(function != NULL);
   /* Allocate thread. */
   t = palloc_get_page(PAL_ZERO);
+#ifdef USERPROG
   struct thread_data* thread_data = (struct thread_data*)malloc(sizeof(struct thread_data));
-  if (t == NULL || thread_data == NULL) {
+  if (thread_data == NULL) {
+    return TID_ERROR;
+  }
+#endif
+  if (t == NULL) {
     return TID_ERROR;
   }
   /* Initialize thread. */
   init_thread(t, name, priority);
+#ifdef USERPROG
   bool success = init_file_d(t);
   if (!success) {
     palloc_free_page(t);
     return TID_ERROR;
   }
-
+#endif
   tid = t->tid = allocate_tid();
-
+  t->effective = priority;
+  t->priority = priority;
+#ifdef USERPROG
   thread_data->ref_cnt = 1;
   thread_data->pid = t->tid;
   thread_data->exit_status = -1;
@@ -189,7 +203,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   lock_acquire(&thread_data->lock);
   t->thread_data->ref_cnt++;
   lock_release(&thread_data->lock);
-
+#endif
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;
@@ -416,7 +430,10 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   t->stack = (uint8_t*)t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->wake_time = 0;
+#ifdef USERPROG
   list_init(&(t->children_data));
+#endif
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
@@ -526,10 +543,11 @@ static tid_t allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
+#ifdef USERPROG
 /* Malloc a file descriptor array to hold pointers to the files after
-   files have been opened. Each file descriptor value is represented 
-   by the index of the array. A maximum of 128 files are allowed to be
-   open at any given time. */
+    files have been opened. Each file descriptor value is represented 
+    by the index of the array. A maximum of 128 files are allowed to be
+    open at any given time. */
 bool init_file_d(struct thread* t) {
   struct file** files = (struct file**)malloc(sizeof(struct file*) * 128);
   if (files == NULL) {
@@ -544,7 +562,7 @@ bool init_file_d(struct thread* t) {
 }
 
 /* Assign file descriptor to a file for a thread t and
-   return the index to represent file descriptor */
+    return the index to represent file descriptor */
 int add_file_d(struct file* file, struct thread* t) {
   for (int i = 2; i < 128; i++) {
     if (!(t->file_d)[i]) {
@@ -556,5 +574,6 @@ int add_file_d(struct file* file, struct thread* t) {
 }
 
 /* Removes file descriptor from a given thread's file_d struct 
-   to close the file descriptor. */
+    to close the file descriptor. */
 void remove_file_d(int fd, struct thread* t) { (t->file_d)[fd] = NULL; }
+#endif

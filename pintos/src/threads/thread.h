@@ -88,9 +88,8 @@ struct thread {
   char name[16];             /* Name (for debugging purposes). */
   uint8_t* stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
-  struct list_elem allelem;  /* List element for all threads list. */
-  struct thread_data* thread_data;
-  struct list children_data;
+
+  struct list_elem allelem; /* List element for all threads list. */
   /* Shared between thread.c and synch.c. */
   struct list_elem elem; /* List elemt. */
 #ifdef USERPROG
@@ -98,7 +97,12 @@ struct thread {
   struct file** file_d;
   uint32_t* pagedir; /* Page directory. */
   struct file* executable;
+  struct thread_data* thread_data;
+  struct list children_data;
 #endif
+  struct list_elem sleep_elem;
+  int64_t wake_time;
+  int effective;
 
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */
@@ -149,7 +153,7 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
-
+#ifdef USERPROG
 //Helper Functions for file descriptor array
 bool init_file_d(
     struct thread*
@@ -159,5 +163,5 @@ int add_file_d(
     struct file* file,
     struct thread*
         t); //Add file descriptor for file at first available index, iterating through indices to find the first available.
-
+#endif
 #endif /* threads/thread.h */
