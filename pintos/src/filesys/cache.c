@@ -109,6 +109,7 @@ struct entry* get_entry(block_sector_t sector) {
       entry->sector = sector;
       entry->dirty = 0;
     }
+    printf("YOLO%d", sector);
     block_read(fs_device, sector, data + entry->data_index * BLOCK_SECTOR_SIZE);
   }
   list_push_front(&lru, &(entry->elem));

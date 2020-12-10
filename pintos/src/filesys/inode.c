@@ -23,6 +23,7 @@ struct inode_disk {
   block_sector_t direct[121];
   block_sector_t indirect;
   block_sector_t doubly_indirect;
+  uint32_t unused[3];
   unsigned magic;
 };
 
@@ -70,7 +71,8 @@ void inode_init(void) { list_init(&open_inodes); }
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool inode_create(block_sector_t sector, off_t length) {
-  struct inode_disk* disk_inode = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  printf("IN INODE CREATE\n");
+  struct inode_disk* disk_inode = (struct inode_disk*)calloc(1, sizeof(struct inode_disk));
   if (disk_inode == NULL) {
     return false;
   }
@@ -83,6 +85,7 @@ bool inode_create(block_sector_t sector, off_t length) {
   ASSERT(sizeof *disk_inode == BLOCK_SECTOR_SIZE);
   disk_inode->magic = INODE_MAGIC;
   success = inode_resize(disk_inode, length);
+  printf("%d %d\n", length, disk_inode->length);
   if (!success) {
     free(disk_inode);
     return false;
@@ -236,19 +239,15 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
 off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t offset) {
   const uint8_t* buffer = buffer_;
   off_t bytes_written = 0;
-  uint8_t* bounce = NULL;
 
   if (inode->deny_write_cnt)
     return 0;
-
-  if (size <= 0) {
-    return 0;
-  }
 
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
   cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   int new_size = (id->length >= size + offset) ? id->length : size + offset;
   if (new_size != id->length) {
+    printf("RESIZING HERE\n");
     bool success = inode_resize(id, new_size);
     if (!success) {
       return 0;
@@ -256,7 +255,6 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     id->length = new_size;
     cache_write(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   }
-  off_t bytes_write = 0;
 
   int start = offset / BLOCK_SECTOR_SIZE;
   int end = DIV_ROUND_UP(size + offset, BLOCK_SECTOR_SIZE);
@@ -267,8 +265,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     delim = (end < 121) ? end : 121;
     for (int i = start; i < delim; i++) {
       num_bytes = (size < BLOCK_SECTOR_SIZE) ? size : BLOCK_SECTOR_SIZE - offset;
-      cache_write(id->direct[i], buffer[bytes_write], offset, num_bytes);
-      bytes_write += num_bytes;
+      printf("HELLO WORLD\n");
+      cache_write(id->direct[i], buffer[bytes_written], offset, num_bytes);
+      printf("HELLO WORLD1\n");
+      bytes_written += num_bytes;
       size -= num_bytes;
       offset = 0;
     }
@@ -281,8 +281,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     cache_read(id->indirect, indirect, 0, BLOCK_SECTOR_SIZE);
     for (int i = start; i < delim; i++) {
       num_bytes = (size < BLOCK_SECTOR_SIZE) ? size : BLOCK_SECTOR_SIZE - offset;
-      cache_write(indirect[i - 121], buffer[bytes_write], offset, num_bytes);
-      bytes_write += num_bytes;
+      cache_write(indirect[i - 121], buffer[bytes_written], offset, num_bytes);
+      bytes_written += num_bytes;
       size -= num_bytes;
       offset = 0;
     }
@@ -298,8 +298,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
       delim = (end < start + 128) ? end : start + 128;
       for (int j = start; j < delim; j++) {
         num_bytes = (size < BLOCK_SECTOR_SIZE) ? size : BLOCK_SECTOR_SIZE - offset;
-        cache_write(indirect[j - 249 - (128 * i)], buffer[bytes_write], offset, num_bytes);
-        bytes_write += num_bytes;
+        cache_write(indirect[j - 249 - (128 * i)], buffer[bytes_written], offset, num_bytes);
+        bytes_written += num_bytes;
         size -= num_bytes;
         offset = 0;
       }
@@ -307,7 +307,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     }
   }
   free(id);
-  return bytes_write;
+  return bytes_written;
 }
 
 /* Disables writes to INODE.
