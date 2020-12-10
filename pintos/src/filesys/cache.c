@@ -16,6 +16,8 @@ void cache_init(void);
 void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_bytes);
 void cache_write(block_sector_t sector, void* buffer, int sector_ofs, int num_bytes);
 void cache_flush(void);
+struct entry* get_entry(block_sector_t sector);
+struct entry* sector_to_entry(block_sector_t sector);
 
 static char data[32768];
 struct lock lru_lock;

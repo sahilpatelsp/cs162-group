@@ -19,7 +19,7 @@
 //   uint32_t unused[125]; /* Not used. */
 // };
 struct inode_disk {
-  int length;
+  off_t length;
   block_sector_t direct[121];
   block_sector_t indirect;
   block_sector_t doubly_indirect;
@@ -401,7 +401,7 @@ bool handle_doubly_indirect(block_sector_t** buffer_id, off_t size, off_t offset
   }
 
   for (int i = 0; i < 128; i++) {
-    success = handle_indirect_pointer(&buffer[i], size, offset + (128 * i));
+    success = handle_indirect(&buffer[i], size, offset + (128 * i));
     if (!success) {
       return false;
     }
@@ -433,7 +433,7 @@ bool inode_resize(struct inode_disk* id, int size) {
   }
 
   //Handle Indirect Pointer
-  success = handle_indirect_pointer(&id->indirect, size, 121);
+  success = handle_indirect(&id->indirect, size, 121);
   if (!success) {
     inode_resize(id, id->length);
     return false;
