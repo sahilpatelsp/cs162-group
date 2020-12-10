@@ -24,7 +24,6 @@ void free_map_init(void) {
    sectors were available or if the free_map file could not be
    written. */
 bool free_map_allocate(size_t cnt, block_sector_t* sectorp) {
-  lock_acquire(&map_lock);
   block_sector_t sector = bitmap_scan_and_flip(free_map, 0, cnt, false);
   if (sector != BITMAP_ERROR && free_map_file != NULL && !bitmap_write(free_map, free_map_file)) {
     bitmap_set_multiple(free_map, sector, cnt, false);
@@ -32,31 +31,8 @@ bool free_map_allocate(size_t cnt, block_sector_t* sectorp) {
   }
   if (sector != BITMAP_ERROR)
     *sectorp = sector;
-  lock_release(&map_lock);
   return sector != BITMAP_ERROR;
 }
-
-// bool allocate_non_contiguous(size_t cnt, block_sector_t* sectorp) {
-//   lock_acquire(&map_lock);
-//   bool success;
-//   if (bitmap_count(free_map, 0, block_size(fs_device), 0) >= cnt) {
-//     for (int i = 0; i < cnt; i++) {
-//       success = free_map_allocate(1, sectorp[i]);
-//       if (success == false) {
-//           for (int j = 0; j < i; j++) {
-//             free_map_release(sectorp[j], 1);
-//           }
-//           lock_release(&map_lock);
-//           return false;
-//       }
-//     }
-//     lock_release(&map_lock);
-//     return true;
-//   } else {
-//     lock_release(&map_lock);
-//     return false;
-//   }
-// }
 
 /* Makes CNT sectors starting at SECTOR available for use. */
 void free_map_release(block_sector_t sector, size_t cnt) {
@@ -67,17 +43,10 @@ void free_map_release(block_sector_t sector, size_t cnt) {
   lock_release(&map_lock);
 }
 
-// void free_non_contiguous(size_t cnt, block_sector_t* sectorp) {
-//   lock_acquire(&map_lock);
-//   for (int i = 0; i < cnt; i++) {
-//     free_map_release(1, sectorp[i]);
-//   }
-//   lock_release(&map_lock);
-// }
-
 /* Opens the free map file and reads it from disk. */
 void free_map_open(void) {
   free_map_file = file_open(inode_open(FREE_MAP_SECTOR));
+  // printf("Length %d\n", free_map_file->inode->length);
   if (free_map_file == NULL)
     PANIC("can't open free map");
   if (!bitmap_read(free_map, free_map_file))

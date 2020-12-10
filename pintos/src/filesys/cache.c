@@ -102,14 +102,13 @@ struct entry* get_entry(block_sector_t sector) {
       lock_init(&(entry->lock));
       entry->data_index = list_size(&lru);
     } else {
-      entry = list_pop_back(&lru);
+      entry = list_entry(list_pop_back(&lru), struct entry, elem);
       if (entry->dirty == 1) {
         write_back(data + entry->data_index * BLOCK_SECTOR_SIZE, entry->sector);
       }
       entry->sector = sector;
       entry->dirty = 0;
     }
-    printf("YOLO%d", sector);
     block_read(fs_device, sector, data + entry->data_index * BLOCK_SECTOR_SIZE);
   }
   list_push_front(&lru, &(entry->elem));

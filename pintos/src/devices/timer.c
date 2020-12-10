@@ -7,7 +7,6 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include <stdbool.h>
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -20,7 +19,6 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
-static struct list sleep_list;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -37,7 +35,6 @@ static void real_time_delay(int64_t num, int32_t denom);
 void timer_init(void) {
   pit_configure_channel(0, 2, TIMER_FREQ);
   intr_register_ext(0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -76,14 +73,14 @@ int64_t timer_ticks(void) {
    should be a value once returned by timer_ticks(). */
 int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 
-/* Sleeps for approximately TICKS timer ticks, and adds thread to sleep_list. Interrupts must
+/* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void timer_sleep(int64_t ticks) {
-  enum intr_level old_level = intr_disable();
-  thread_current()->wake_time = timer_ticks() + ticks;
-  list_push_back(&sleep_list, &(thread_current()->sleep_elem));
-  thread_block();
-  intr_set_level(old_level);
+  int64_t start = timer_ticks();
+
+  ASSERT(intr_get_level() == INTR_ON);
+  while (timer_elapsed(start) < ticks)
+    thread_yield();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -100,7 +97,6 @@ void timer_nsleep(int64_t ns) { real_time_sleep(ns, 1000 * 1000 * 1000); }
 
 /* Busy-waits for approximately MS milliseconds.  Interrupts need
    not be turned on.
-
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_msleep()
@@ -109,7 +105,6 @@ void timer_mdelay(int64_t ms) { real_time_delay(ms, 1000); }
 
 /* Sleeps for approximately US microseconds.  Interrupts need not
    be turned on.
-
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_usleep()
@@ -118,7 +113,6 @@ void timer_udelay(int64_t us) { real_time_delay(us, 1000 * 1000); }
 
 /* Sleeps execution for approximately NS nanoseconds.  Interrupts
    need not be turned on.
-
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_nsleep()
@@ -128,23 +122,9 @@ void timer_ndelay(int64_t ns) { real_time_delay(ns, 1000 * 1000 * 1000); }
 /* Prints timer statistics. */
 void timer_print_stats(void) { printf("Timer: %" PRId64 " ticks\n", timer_ticks()); }
 
-/* Timer interrupt handler. Iterates through sleep_list and checks whether t->wake_time <= ticks; if so, unblocks thread and 
-   removes it from sleep_list. */
+/* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame* args UNUSED) {
   ticks++;
-  struct list_elem* e = list_begin(&sleep_list);
-  struct list_elem* temp;
-  while (e != list_end(&sleep_list)) {
-    struct thread* t = list_entry(e, struct thread, sleep_elem);
-    if (t->wake_time > ticks) {
-      e = list_next(e);
-    } else {
-      thread_unblock(t);
-      temp = e;
-      e = list_next(e);
-      list_remove(temp);
-    }
-  }
   thread_tick();
 }
 
@@ -167,7 +147,6 @@ static bool too_many_loops(unsigned loops) {
 
 /* Iterates through a simple loop LOOPS times, for implementing
    brief delays.
-
    Marked NO_INLINE because code alignment can significantly
    affect timings, so that if this function was inlined
    differently in different places the results would be difficult
@@ -180,7 +159,6 @@ static void NO_INLINE busy_wait(int64_t loops) {
 /* Sleep for approximately NUM/DENOM seconds. */
 static void real_time_sleep(int64_t num, int32_t denom) {
   /* Convert NUM/DENOM seconds into timer ticks, rounding down.
-
         (NUM / DENOM) s
      ---------------------- = NUM * TIMER_FREQ / DENOM ticks.
      1 s / TIMER_FREQ ticks
