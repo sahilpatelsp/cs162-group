@@ -23,6 +23,7 @@ struct inode_disk {
   block_sector_t direct[121];
   block_sector_t indirect;
   block_sector_t doubly_indirect;
+  bool isdir;
   unsigned magic;
   uint32_t unused[3];
 };
@@ -39,6 +40,7 @@ struct inode {
   bool removed;          /* True if deleted, false otherwise. */
   int deny_write_cnt;    /* 0: writes ok, >0: deny writes. */
   struct lock resize_lock;
+  bool isdir;
 };
 
 /* List of open inodes, so that opening a single inode twice

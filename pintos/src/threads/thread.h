@@ -93,6 +93,7 @@ struct thread {
   uint32_t* pagedir; /* Page directory. */
   struct file* executable;
 #endif
+  struct dir* cwd;
 
   /* Owned bythread.c. */
   unsigned magic; /* Detects stack overflow. */

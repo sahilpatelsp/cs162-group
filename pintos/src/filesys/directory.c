@@ -32,6 +32,8 @@ struct dir* dir_open(struct inode* inode) {
   if (inode != NULL && dir != NULL) {
     dir->inode = inode;
     dir->pos = 0;
+    dir_add(dir, ".", inode->sector);
+    dir_add(dir, "..", inode->sector);
     return dir;
   } else {
     inode_close(inode);

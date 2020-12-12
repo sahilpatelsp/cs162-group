@@ -31,6 +31,7 @@ void filesys_init(bool format) {
 
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
+//TODO cache flush*****************
 void filesys_done(void) { free_map_close(); }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
@@ -85,4 +86,73 @@ static void do_format(void) {
     PANIC("root directory creation failed");
   free_map_close();
   printf("done.\n");
+}
+
+/* Resolve path into dir and name, unsure about close */
+bool resolve_path(char* path, struct dir** dir, char* name) {
+  if (path[0] == '\0') {
+    return false;
+  } else if (path[0] == '/') {
+    *dir = dir_open_root();
+    path++;
+  } else {
+    *dir = thread_current()->cwd;
+  }
+
+  char cur[NAME_MAX + 1];
+  char next[NAME_MAX + 1];
+  int cur_rv = get_next_part(cur, &path);
+  int next_rv = get_next_part(next, &path);
+  struct inode* inode;
+
+  while (cur_rv == 1 && next_rv == 1) {
+    if (!dir_lookup(*dir, cur, &inode)) {
+      dir_close(*dir);
+      // inode_close(inode);
+      return false;
+    }
+    dir_close(*dir);
+    if (!inode->isdir) {
+      inode_close(inode);
+      return false;
+    }
+    *dir = dir_open(inode);
+    if (*dir == NULL) {
+      return false;
+    }
+    strcpy(cur, next);
+    cur_rv = next_rv;
+    next_rv = get_next_part(next, &path);
+  }
+
+  if (cur_rv == 1 && next_rv == 0) {
+    strcpy(name, cur);
+    return true;
+  }
+
+  if (cur_rv == -1 || next_rv == -1) {
+    dir_close(*dir);
+    return false;
+  }
+}
+
+/* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the next call will return the next file name part. Returns 1 if successful, 0 at end of string, -1 for a too-long file name part. */
+static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+  const char* src = *srcp;
+  char* dst = part;
+  /* Skip leading slashes. If it’s all slashes, we’re done. */ while (*src == ’/’)
+    src++;
+  if (*src == '\0')
+    return 0;
+  /* Copy up to NAME_MAX character from SRC to DST. Add null terminator. */ while (*src != ’/’ &&
+                                                                                   *src != ’\0’) {
+    if (dst < part + NAME_MAX)
+      *dst++ = *src;
+    else
+      return -1;
+    src++;
+  }
+  *dst = '\0';
+  /* Advance source pointer. */ *srcp = src;
+  return 1;
 }

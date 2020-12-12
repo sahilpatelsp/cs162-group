@@ -81,7 +81,6 @@ int syscall_open(const char* file, struct thread* t) {
 int syscall_filesize(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (!file_struct) {
-    // lock_release(&lock);
     general_exit(-1);
   }
   return file_length(file_struct);
@@ -114,7 +113,6 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   } else {
     struct file* file_struct = t->file_d[fd];
     if (!file_struct) {
-      // lock_release(&lock);
       general_exit(-1);
       return -1;
     }
@@ -128,7 +126,6 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
   if (file_struct) {
     file_seek(file_struct, position);
   } else {
-    // lock_release(&lock);
     general_exit(-1);
   }
 }
@@ -136,7 +133,6 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
 unsigned syscall_tell(int fd, struct thread* t) {
   struct file* file_struct = t->file_d[fd];
   if (!file_struct) {
-    // lock_release(&lock);
     general_exit(-1);
   }
   return file_tell(file_struct);
@@ -186,9 +182,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       validate_ptr(buffer_write, size_write);
-      // lock_acquire(&lock);
       f->eax = syscall_write(fd_write, buffer_write, size_write, thread_current());
-      // lock_release(&lock);
       break;
     case SYS_CREATE:
       validate_ptr(args + 1, 4);
@@ -196,16 +190,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
-      // lock_acquire(&lock);
       f->eax = syscall_create(file_create, initial_size_create);
-      // lock_release(&lock);
       break;
     case SYS_OPEN:
       validate_ptr(args + 1, 4);
       validate_str(args[1]);
-      // lock_acquire(&lock);
       f->eax = syscall_open((char*)args[1], thread_current());
-      // lock_release(&lock);
       break;
     case SYS_READ:
       validate_ptr(args + 1, 4);
@@ -218,26 +208,19 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       validate_ptr(buffer_read, size_read);
-      // lock_acquire(&lock);
       f->eax = syscall_read(fd_read, buffer_read, size_read, thread_current());
-      // lock_release(&lock);
       break;
     case SYS_FILESIZE:
       validate_ptr(args + 1, 4);
       if (args[1] < 0 || args[1] > 127) {
-        // lock_release(&lock);
         general_exit(-1);
       }
-      // lock_acquire(&lock);
       f->eax = syscall_filesize(args[1], thread_current());
-      // lock_release(&lock);
       break;
     case SYS_REMOVE:
       validate_ptr(args + 1, 4);
       validate_str((args[1]));
-      // lock_acquire(&lock);
       f->eax = syscall_remove((char*)args[1]);
-      // lock_release(&lock);
       break;
     case SYS_SEEK:
       validate_ptr(args + 1, 4);
@@ -247,9 +230,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_seek < 0 || fd_seek > 127) {
         general_exit(-1);
       }
-      // lock_acquire(&lock);
       syscall_seek(fd_seek, position, thread_current());
-      // lock_release(&lock);
       break;
     case SYS_TELL:
       validate_ptr(args + 1, 4);
@@ -257,9 +238,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_tell < 0 || fd_tell > 127) {
         general_exit(-1);
       }
-      // lock_acquire(&lock);
       f->eax = syscall_tell(fd_tell, thread_current());
-      // lock_release(&lock);
       break;
     case SYS_CLOSE:
       validate_ptr(args + 1, 4);
@@ -267,9 +246,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       if (fd_close < 2 || fd_close > 127) {
         general_exit(-1);
       }
-      // lock_acquire(&lock);
       syscall_close(fd_close, thread_current());
-      // lock_release(&lock);
       break;
     default:
       break;
