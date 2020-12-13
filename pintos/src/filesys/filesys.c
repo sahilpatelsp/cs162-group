@@ -102,8 +102,13 @@ int fd_open(const char* name) {
     return -1;
   }
   struct inode* inode = NULL;
-  if (dir != NULL)
-    dir_lookup(dir, new_name, &inode);
+  if (dir != NULL) {
+  }
+  dir_lookup(dir, new_name, &inode);
+  if (!inode) {
+    dir_close(dir);
+    return -1;
+  }
   dir_close(dir);
   if (inode->isdir) {
     struct dir* open_file = dir_open(inode);
