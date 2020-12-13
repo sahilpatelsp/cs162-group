@@ -185,8 +185,9 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   lock_acquire(&thread_data->lock);
   t->thread_data->ref_cnt++;
   lock_release(&thread_data->lock);
-
+#ifdef FILESYS
   t->cwd = parent->cwd;
+#endif
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;

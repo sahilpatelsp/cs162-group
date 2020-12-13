@@ -44,6 +44,7 @@ void filesys_init(bool format) {
   dir_add(dir, ".", dir->inode->sector);
   dir_add(dir, "..", dir->inode->sector);
   thread_current()->cwd = dir;
+  // printf("TID FILESYS %d\n", thread_current()->tid);
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -62,7 +63,7 @@ bool filesys_create(const char* name, off_t initial_size) {
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
-  // printf("OUTPUT OF resolve path %d name %s new_name %s\n", dir == dir_open_root(), name, new_name);
+  // printf("OUTPUT OF resolve path DIR SECTOR %d ROOT SECTOR %d CWD SECTOR %d name %s new_name %s\n", dir->inode->sector, dir_open_root()->inode->sector, thread_current()->cwd->inode->sector, name, new_name);
   if (!success) {
     return false;
   }
@@ -227,10 +228,14 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
   } else if (path[0] == '/') {
     *dir = dir_open_root();
     path++;
+  } else if (!thread_current()->cwd) {
+    *dir = dir_open_root();
   } else {
-    *dir = thread_current()->cwd;
+    *dir = dir_reopen(thread_current()->cwd);
+    // printf("TID RESOLVE %d\n", thread_current()->tid);
   }
 
+  // printf("CWD SECTOR %d\n", (*dir)->inode->sector);
   char cur[NAME_MAX + 1];
   char next[NAME_MAX + 1];
 
