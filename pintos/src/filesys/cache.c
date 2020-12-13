@@ -19,6 +19,8 @@ double buffer_cache_hitrate();
 struct lock lru_lock;
 struct list lru;
 static char* data;
+double cache_hits;
+double cache_misses;
 
 #define MAXSIZE 64
 
@@ -57,6 +59,8 @@ void write_back(void* block, block_sector_t sector) {
 
 void cache_flush(void) {
   lock_acquire(&lru_lock);
+  cache_hits = 0;
+  cache_misses = 0;
   struct list_elem* e;
   struct entry* entry;
   while (!list_empty(&lru)) {
@@ -87,9 +91,11 @@ struct entry* get_entry(block_sector_t sector) {
   lock_acquire(&lru_lock);
   entry = sector_to_entry(sector);
   if (entry != NULL) {
+    cache_hits++;
     list_remove(&(entry->elem));
   } else {
     //cache miss
+    cache_misses++;
     if (list_size(&lru) < MAXSIZE) {
       entry = (struct entry*)malloc(sizeof(struct entry));
       entry->sector = sector;
@@ -111,6 +117,4 @@ struct entry* get_entry(block_sector_t sector) {
   return entry;
 }
 
-double buffer_cache_hitrate() {
-  return fs_device->read_cnt / (fs_device->read_cnt + fs_device->write_cnt);
-}
+double buffer_cache_hitrate() { return cache_hits / (cache_hits + cache_misses); }

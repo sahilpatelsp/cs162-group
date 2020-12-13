@@ -51,12 +51,12 @@ bool filesys_create(const char* name, off_t initial_size) {
   // CHANGE TO TRAVERSE PATH ******
   // struct dir* dir = dir_open_root();
   char new_name[NAME_MAX + 1];
-  struct dir* dir == NULL;
+  struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
   if (!success) {
     return false;
   }
-  bool success =
+  success =
       (dir != NULL && free_map_allocate(1, &inode_sector) &&
        inode_create(inode_sector, initial_size, false) && dir_add(dir, new_name, inode_sector));
   if (!success && inode_sector != 0)
@@ -71,7 +71,6 @@ bool filesys_create(const char* name, off_t initial_size) {
    otherwise.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-//TODO****************************
 struct file* filesys_open(const char* name) {
   struct dir* dir = dir_open_root();
   struct inode* inode = NULL;
@@ -84,7 +83,6 @@ struct file* filesys_open(const char* name) {
 }
 
 int fd_open(const char* name) {
-  int fd;
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
@@ -97,10 +95,10 @@ int fd_open(const char* name) {
   dir_close(dir);
   if (inode->isdir) {
     struct dir* open_file = dir_open(inode);
-    return add_file_d((void*)open_file, t, true);
+    return add_file_d((void*)open_file, thread_current(), true);
   } else {
     struct file* open_file = file_open(inode);
-    return = add_file_d(open_file, t, false);
+    return add_file_d(open_file, thread_current(), false);
   }
   return -1;
 }
@@ -112,15 +110,29 @@ int fd_open(const char* name) {
 //TODO******************
 bool filesys_remove(const char* name) {
   char new_name[NAME_MAX + 1];
-  struct dir* dir = NULL;
-  bool success = resolve_path(name, &dir, new_name);
+  struct dir* dirs = NULL;
+  bool success = resolve_path(name, &dirs, new_name);
   if (!success) {
     return false;
   }
-  bool success = dir != NULL && dir_remove(dir, new_name);
-  dir_close(dir);
+  // dir = ./a/b/c -> b, new_name -> c
+  struct inode* inode;
+  if (!dir_lookup(dirs, name, &inode)) {
+    dir_close(dirs);
+    return false;
+  }
+  dir_close(dirs);
+  if (inode->isdir) {
+    dirs = dir_open(inode);
+    if (dirs == NULL) {
+      return false;
+    }
+  } else {
+    success = dirs != NULL && dir_remove(dir, new_name);
+    dir_close(dir);
 
-  return success;
+    return success;
+  }
 }
 
 bool filesys_chdir(const char* dir, struct thread* t) {
@@ -154,17 +166,17 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   }
 
   struct inode* inode;
-  if (dir_lookup(dirs, new_name, &inode)) {
+  if (dir_lookup(dirs, name, &inode)) {
     dir_close(dirs);
     return false;
   }
   block_sector_t inode_sector = 0;
-  bool success = (dirs != NULL && free_map_allocate(1, &inode_sector) &&
-                  dir_create(inode_sector, 2) && dir_add(dirs, new_name, inode_sector));
+  success = (dirs != NULL && free_map_allocate(1, &inode_sector) && dir_create(inode_sector, 2) &&
+             dir_add(dirs, name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release(inode_sector, 1);
 
-  if (!dir_lookup(dirs, new_name, &inode)) {
+  if (!dir_lookup(dirs, name, &inode)) {
     dir_close(dirs);
     return false;
   }
@@ -181,20 +193,17 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
 }
 
 bool filesys_readdir(int fd, char* name, struct thread* t) {
-  struct dir* dir_struct = (struct dir*)(t->file_d[fd])->filesys_ptr;
+  struct dir* dir_struct = (struct dir*)(t->file_d[fd]).filesys_ptr;
   if (!dir_struct) {
     return false;
   }
   return dir_readdir(dir_struct, name);
 }
 
-bool filesys_isdir(int fd, struct thread* t) {
-  file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
-  return file_meta->isdir;
-}
+bool filesys_isdir(int fd, struct thread* t) { return (t->file_d[fd]).isdir; }
 
 int filesys_inumber(int fd, struct thread* t) {
-  struct file* file = (struct file*)(t->file_d[fd])->filesys_ptr;
+  struct file* file = (struct file*)(t->file_d[fd]).filesys_ptr;
   return file->inode->sector;
 }
 
@@ -252,10 +261,11 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
     dir_close(*dir);
     return false;
   }
+  return false;
 }
 
 /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the next call will return the next file name part. Returns 1 if successful, 0 at end of string, -1 for a too-long file name part. */
-static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   const char* src = *srcp;
   char* dst = part;
   /* Skip leading slashes. If it’s all slashes, we’re done. */ while (*src == '/')

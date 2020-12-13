@@ -82,7 +82,7 @@ bool syscall_remove(const char* file) { return filesys_remove(file); }
 int syscall_open(const char* file, struct thread* t) { return fd_open(file); }
 
 int syscall_filesize(int fd, struct thread* t) {
-  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
+  struct file* file_struct = (struct file*)(t->file_d[fd]).filesys_ptr;
   if (!file_struct) {
     general_exit(-1);
   }
@@ -98,11 +98,11 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
     }
     return i;
   } else {
-    struct file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
-    if (!file_meta || file_meta->isdir == true || !(file_meta->filesys_ptr)) {
+    struct file_meta file_meta = t->file_d[fd];
+    if (file_meta.isdir == true || !(file_meta.filesys_ptr)) {
       return -1;
     }
-    struct file* file_struct = (struct file*)file_meta->filesys_ptr;
+    struct file* file_struct = (struct file*)file_meta.filesys_ptr;
     if (!file_struct) {
       return -1;
     }
@@ -118,11 +118,11 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   if (fd == 1) {
     putbuf(buffer, size);
   } else {
-    struct file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
-    if (!file_meta || file_meta->isdir == true) {
+    struct file_meta file_meta = t->file_d[fd];
+    if (file_meta.isdir == true) {
       return -1;
     }
-    struct file* file_struct = (struct file*)file_meta->filesys_ptr;
+    struct file* file_struct = (struct file*)file_meta.filesys_ptr;
     if (!file_struct) {
       general_exit(-1);
       return -1;
@@ -133,7 +133,7 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
 }
 
 void syscall_seek(int fd, unsigned position, struct thread* t) {
-  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
+  struct file* file_struct = (struct file*)(t->file_d[fd]).filesys_ptr;
   if (file_struct) {
     file_seek(file_struct, position);
   } else {
@@ -142,7 +142,7 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
 }
 
 unsigned syscall_tell(int fd, struct thread* t) {
-  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
+  struct file* file_struct = (struct file*)(t->file_d[fd]).filesys_ptr;
   if (!file_struct) {
     general_exit(-1);
   }
@@ -200,7 +200,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
-      f->eax = syscall_create(file_create, initial_size_create, 0);
+      f->eax = syscall_create(file_create, initial_size_create);
       break;
     case SYS_OPEN:
       validate_ptr(args + 1, 4);
@@ -260,33 +260,33 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       break;
     case SYS_CHDIR:
       validate_ptr(args + 1, 4);
-      const char* dir = args[1];
-      validate_str(dir);
-      f->eax = filesys_chdir(dir, thread_current());
+      const char* dir_chdir = args[1];
+      validate_str(dir_chdir);
+      f->eax = filesys_chdir(dir_chdir, thread_current());
       break;
     case SYS_MKDIR:
       validate_ptr(args + 1, 4);
-      const char* dir = args[1];
-      validate_str(dir);
-      f->eax = filesys_create(dir, 0);
+      const char* dir_mkdir = args[1];
+      validate_str(dir_mkdir);
+      f->eax = filesys_create(dir_mkdir, 0);
       break;
     case SYS_READDIR:
       validate_ptr(args + 1, 4);
       validate_ptr(args + 2, 4);
-      int fd = args[1];
+      int fd_readdir = args[1];
       char* name = args[2];
       validate_str(name);
-      f->eax = filesys_readdir(fd, name, thread_current());
+      f->eax = filesys_readdir(fd_readdir, name, thread_current());
       break;
     case SYS_ISDIR:
       validate_ptr(args + 1, 4);
-      int fd = args[1];
-      f->eax = filesys_isdir(fd, thread_current());
+      int fd_isdir = args[1];
+      f->eax = filesys_isdir(fd_isdir, thread_current());
       break;
     case SYS_INUMBER:
       validate_ptr(args + 1, 4);
-      int fd = args[1];
-      f->eax = filesys_inumber(fd, thread_current());
+      int fd_inumber = args[1];
+      f->eax = filesys_inumber(fd_inumber, thread_current());
       break;
     default:
       break;

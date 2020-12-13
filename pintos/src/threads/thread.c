@@ -526,8 +526,8 @@ bool init_file_d(struct thread* t) {
     return false;
   }
   for (int i = 0; i < 128; i++) {
-    files[i]->filesys_ptr = (void*)NULL;
-    files[i]->isdir = false;
+    files[i].filesys_ptr = (void*)NULL;
+    files[i].isdir = false;
   }
   t->file_d = files;
   return true;
@@ -537,9 +537,9 @@ bool init_file_d(struct thread* t) {
    return the index to represent file descriptor */
 int add_file_d(void* filesys_ptr, struct thread* t, bool isdir) {
   for (int i = 2; i < 128; i++) {
-    if (!((t->file_d[i])->filesys_ptr)) {
-      (t->file_d[i])->isdir = isdir;
-      (t->file_d[i])->filesys_ptr = filesys_ptr;
+    if (!((t->file_d[i]).filesys_ptr)) {
+      (t->file_d[i]).isdir = isdir;
+      (t->file_d[i]).filesys_ptr = filesys_ptr;
       return i;
     }
   }
@@ -549,6 +549,6 @@ int add_file_d(void* filesys_ptr, struct thread* t, bool isdir) {
 /* Removes file descriptor from a given thread's file_d struct 
    to close the file descriptor. */
 void remove_file_d(int fd, struct thread* t) {
-  (t->file_d[fd])->filesys_ptr = (void*)NULL;
-  (t->file_d + fd)->isdir = false;
+  (t->file_d[fd]).filesys_ptr = (void*)NULL;
+  (t->file_d[fd]).isdir = false;
 }

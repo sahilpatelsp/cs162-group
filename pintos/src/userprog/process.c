@@ -204,7 +204,7 @@ void process_exit(void) {
   }
   if (cur->file_d) {
     for (int x = 2; x < 128; x++) {
-      struct file* temp = (cur->file_d)[x];
+      struct file* temp = (struct file*)(cur->file_d[x]).filesys_ptr;
       if (temp) {
         file_close(temp);
       }
@@ -341,7 +341,7 @@ bool load(const char* args, void (**eip)(void), void** esp) {
     goto done;
   }
 
-  add_file_d(file, thread_current());
+  add_file_d(file, thread_current(), false);
   file_deny_write(file);
 
   /* Read and verify executable header. */
