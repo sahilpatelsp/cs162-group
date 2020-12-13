@@ -13,6 +13,18 @@
 struct block* fs_device;
 
 static void do_format(void);
+void filesys_init(bool format);
+void filesys_done(void);
+bool filesys_create(const char* name, off_t initial_size);
+struct file* filesys_open(const char* name);
+int fd_open(const char* name);
+bool filesys_remove(const char* name);
+bool filesys_chdir(const char* dir, struct thread* t);
+bool filesys_mkdir(const char* dir, struct thread* t);
+bool filesys_readdir(int fd, char* name, struct thread* t);
+bool filesys_isdir(int fd, struct thread* t);
+int filesys_inumber(int fd, struct thread* t);
+bool resolve_path(char* path, struct dir** dir, char* name);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -28,11 +40,10 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
-
   struct dir* dir = dir_open_root();
   dir_add(dir, ".", dir->inode->sector);
   dir_add(dir, "..", dir->inode->sector);
-  dir_close(dir);
+  thread_current()->cwd = dir;
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -107,7 +118,6 @@ int fd_open(const char* name) {
    Returns true if successful, false on failure.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
-//TODO******************
 bool filesys_remove(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dirs = NULL;
@@ -115,24 +125,17 @@ bool filesys_remove(const char* name) {
   if (!success) {
     return false;
   }
-  // dir = ./a/b/c -> b, new_name -> c
+  // name = ./a/b/c
+  // dirs -> b, new_name -> c
   struct inode* inode;
-  if (!dir_lookup(dirs, name, &inode)) {
+  if (!dir_lookup(dirs, new_name, &inode)) {
     dir_close(dirs);
     return false;
   }
+  success = (dirs != NULL && dir_remove(dirs, new_name));
   dir_close(dirs);
-  if (inode->isdir) {
-    dirs = dir_open(inode);
-    if (dirs == NULL) {
-      return false;
-    }
-  } else {
-    success = dirs != NULL && dir_remove(dir, new_name);
-    dir_close(dir);
 
-    return success;
-  }
+  return success;
 }
 
 bool filesys_chdir(const char* dir, struct thread* t) {
@@ -247,13 +250,13 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
     if (*dir == NULL) {
       return false;
     }
-    strcpy(cur, next);
+    strlcpy(cur, next, NAME_MAX + 1);
     cur_rv = next_rv;
     next_rv = get_next_part(next, &path);
   }
 
   if (cur_rv == 1 && next_rv == 0) {
-    strcpy(name, cur);
+    strlcpy(name, cur, NAME_MAX + 1);
     return true;
   }
 

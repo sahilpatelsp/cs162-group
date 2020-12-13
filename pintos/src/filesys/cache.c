@@ -14,13 +14,13 @@ void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int 
 void cache_flush(void);
 struct entry* get_entry(block_sector_t sector);
 struct entry* sector_to_entry(block_sector_t sector);
-double buffer_cache_hitrate();
+int buffer_cache_hitrate(void);
 
 struct lock lru_lock;
 struct list lru;
 static char* data;
-double cache_hits;
-double cache_misses;
+int cache_hits;
+int cache_misses;
 
 #define MAXSIZE 64
 
@@ -117,4 +117,4 @@ struct entry* get_entry(block_sector_t sector) {
   return entry;
 }
 
-double buffer_cache_hitrate() { return cache_hits / (cache_hits + cache_misses); }
+int buffer_cache_hitrate(void) { return cache_hits / (cache_hits + cache_misses); }

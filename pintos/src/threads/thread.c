@@ -91,8 +91,6 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
-
-  initial_thread->cwd = dir_open_root();
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.

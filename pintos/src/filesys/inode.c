@@ -3,6 +3,7 @@
 #include <debug.h>
 #include <round.h>
 #include <string.h>
+#include <stdbool.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "filesys/cache.h"
@@ -18,7 +19,7 @@ static inline size_t bytes_to_sectors(off_t size) { return DIV_ROUND_UP(size, BL
    returns the same `struct inode'. */
 struct list open_inodes;
 struct lock open_inodes_lock;
-
+bool inode_create(block_sector_t sector, off_t length, bool isdir);
 bool inode_resize(struct inode_disk* id, int size);
 bool handle_direct(block_sector_t* buffer, off_t size, int i, off_t offset);
 bool handle_indirect(block_sector_t* buffer_id, off_t size, off_t offset);
@@ -90,6 +91,7 @@ struct inode* inode_open(block_sector_t sector) {
   inode->deny_write_cnt = 0;
   inode->removed = false;
   lock_init(&inode->resize_lock);
+  lock_init(&(inode->dir_lock));
   lock_release(&open_inodes_lock);
 
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));

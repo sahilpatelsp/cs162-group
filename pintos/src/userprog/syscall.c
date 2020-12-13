@@ -7,7 +7,6 @@
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
-#include "filesys/cache.c"
 #include "filesys/cache.h"
 
 // struct lock lock;
@@ -27,9 +26,9 @@ int inumber(int fd);
 unsigned syscall_tell(int fd, struct thread* t);
 void validate_ptr(void* ptr, int size);
 void validate_str(void* str);
-double cache_hitrate();
+int cache_hitrate();
 
-double cache_hitrate() { return buffer_cache_hitrate(); }
+int cache_hitrate() { return buffer_cache_hitrate(); }
 
 void syscall_init(void) {
   // lock_init(&lock);
@@ -149,7 +148,15 @@ unsigned syscall_tell(int fd, struct thread* t) {
   return file_tell(file_struct);
 }
 
-void syscall_close(int fd, struct thread* t) { remove_file_d(fd, t); }
+void syscall_close(int fd, struct thread* t) {
+  struct file_meta file_meta = t->file_d[fd];
+  if (file_meta.isdir) {
+    dir_close((struct dir*)file_meta.filesys_ptr);
+  } else {
+    file_close((struct file*)file_meta.filesys_ptr);
+  }
+  remove_file_d(fd, t);
+}
 /*
   * The syscall_handler function handles the syscall request by switching over args[0]. In the case of 
   * a file operation, the function acquires/releases a lock for the sake of mutual exclusion. It validates 

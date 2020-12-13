@@ -10,7 +10,7 @@
 struct bitmap;
 
 void inode_init(void);
-bool inode_create(block_sector_t sector, off_t length, int isdir);
+bool inode_create(block_sector_t sector, off_t length, bool isdir);
 struct inode* inode_open(block_sector_t);
 struct inode* inode_reopen(struct inode*);
 block_sector_t inode_get_inumber(const struct inode*);
@@ -32,6 +32,7 @@ struct inode {
   int deny_write_cnt;    /* 0: writes ok, >0: deny writes. */
   struct lock resize_lock;
   bool isdir;
+  struct lock dir_lock;
 };
 
 struct inode_disk {
