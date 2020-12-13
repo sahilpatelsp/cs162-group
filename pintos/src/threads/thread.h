@@ -89,7 +89,7 @@ struct thread {
   struct list_elem elem; /* List elemt. */
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
-  struct file** file_d;
+  struct file_meta* file_d;
   uint32_t* pagedir; /* Page directory. */
   struct file* executable;
 #endif
@@ -146,13 +146,18 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 //Helper Functions for file descriptor array
+struct file_meta {
+  bool isdir;
+  void* filesys_ptr;
+};
+
 bool init_file_d(
     struct thread*
         t); //Initialize file descriptor array with 0 and 1 set to dummy values and rest with value null
 void remove_file_d(int fd, struct thread* t); //Remove pointer to file* struct at given fd
 int add_file_d(
-    struct file* file,
-    struct thread*
-        t); //Add file descriptor for file at first available index, iterating through indices to find the first available.
+    void* filesys_ptr, struct thread* t,
+    bool
+        isdir); //Add file descriptor for file at first available index, iterating through indices to find the first available.
 
 #endif /* threads/thread.h */

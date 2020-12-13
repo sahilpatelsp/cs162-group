@@ -20,12 +20,13 @@
 // };
 struct inode_disk {
   off_t length;
+  block_sector_t parent;
   block_sector_t direct[121];
   block_sector_t indirect;
   block_sector_t doubly_indirect;
   bool isdir;
   unsigned magic;
-  uint32_t unused[3];
+  char unused[3];
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -64,7 +65,7 @@ void inode_init(void) {
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
-bool inode_create(block_sector_t sector, off_t length) {
+bool inode_create(block_sector_t sector, off_t length, bool isdir) {
   struct inode_disk* disk_inode = (struct inode_disk*)calloc(1, sizeof(struct inode_disk));
   if (disk_inode == NULL) {
     return false;
@@ -83,6 +84,7 @@ bool inode_create(block_sector_t sector, off_t length) {
     return false;
   }
   disk_inode->length = length;
+  disk_inode->isdir = isdir;
   cache_write(sector, disk_inode, 0, BLOCK_SECTOR_SIZE);
   free(disk_inode);
   return success;
@@ -119,6 +121,12 @@ struct inode* inode_open(block_sector_t sector) {
   inode->removed = false;
   lock_init(&inode->resize_lock);
   lock_release(&open_inodes_lock);
+
+  struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
+  inode->isdir = id->isdir;
+  free(id);
+
   return inode;
 }
 

@@ -22,18 +22,22 @@ struct dir_entry {
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+  return inode_create(sector, entry_cnt * sizeof(struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
    it takes ownership.  Returns a null pointer on failure. */
 struct dir* dir_open(struct inode* inode) {
+  if (!inode->isdir) {
+    inode_close(inode);
+    return NULL;
+  }
   struct dir* dir = calloc(1, sizeof *dir);
   if (inode != NULL && dir != NULL) {
     dir->inode = inode;
     dir->pos = 0;
-    dir_add(dir, ".", inode->sector);
-    dir_add(dir, "..", inode->sector);
+    // dir_add(dir, ".", inode->sector);
+    // dir_add(dir, "..", inode->sector);
     return dir;
   } else {
     inode_close(inode);
@@ -194,7 +198,8 @@ bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
 
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
-    if (e.in_use) {
+
+    if (e.in_use && e.name != "." && e.name != "..") {
       strlcpy(name, e.name, NAME_MAX + 1);
       return true;
     }

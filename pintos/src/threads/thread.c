@@ -187,7 +187,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   t->thread_data->ref_cnt++;
   lock_release(&thread_data->lock);
 
-  t->cwd = running_thread()->cwd;
+  t->cwd = parent->cwd;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -521,13 +521,13 @@ uint32_t thread_stack_ofs = offsetof(struct thread, stack);
    by the index of the array. A maximum of 128 files are allowed to be
    open at any given time. */
 bool init_file_d(struct thread* t) {
-  struct file** files = (struct file**)malloc(sizeof(struct file*) * 128);
+  struct file_meta* files = (struct file_meta*)malloc(sizeof(struct file_meta) * 128);
   if (files == NULL) {
     return false;
-    printf("HELLO");
   }
   for (int i = 0; i < 128; i++) {
-    files[i] = NULL;
+    files[i]->filesys_ptr = (void*)NULL;
+    files[i]->isdir = false;
   }
   t->file_d = files;
   return true;
@@ -535,10 +535,11 @@ bool init_file_d(struct thread* t) {
 
 /* Assign file descriptor to a file for a thread t and
    return the index to represent file descriptor */
-int add_file_d(struct file* file, struct thread* t) {
+int add_file_d(void* filesys_ptr, struct thread* t, bool isdir) {
   for (int i = 2; i < 128; i++) {
-    if (!(t->file_d)[i]) {
-      (t->file_d)[i] = file;
+    if (!((t->file_d[i])->filesys_ptr)) {
+      (t->file_d[i])->isdir = isdir;
+      (t->file_d[i])->filesys_ptr = filesys_ptr;
       return i;
     }
   }
@@ -547,4 +548,7 @@ int add_file_d(struct file* file, struct thread* t) {
 
 /* Removes file descriptor from a given thread's file_d struct 
    to close the file descriptor. */
-void remove_file_d(int fd, struct thread* t) { (t->file_d)[fd] = NULL; }
+void remove_file_d(int fd, struct thread* t) {
+  (t->file_d[fd])->filesys_ptr = (void*)NULL;
+  (t->file_d + fd)->isdir = false;
+}

@@ -14,6 +14,7 @@ void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int 
 void cache_flush(void);
 struct entry* get_entry(block_sector_t sector);
 struct entry* sector_to_entry(block_sector_t sector);
+double buffer_cache_hitrate();
 
 struct lock lru_lock;
 struct list lru;
@@ -108,4 +109,8 @@ struct entry* get_entry(block_sector_t sector) {
   list_push_front(&lru, &(entry->elem));
   lock_release(&lru_lock);
   return entry;
+}
+
+double buffer_cache_hitrate() {
+  return fs_device->read_cnt / (fs_device->read_cnt + fs_device->write_cnt);
 }

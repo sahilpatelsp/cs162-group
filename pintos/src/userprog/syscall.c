@@ -7,6 +7,8 @@
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "filesys/cache.c"
+#include "filesys/cache.h"
 
 // struct lock lock;
 static void syscall_handler(struct intr_frame*);
@@ -17,9 +19,17 @@ int syscall_filesize(int fd, struct thread* t);
 int syscall_read(int fd, void* buffer, unsigned size, struct thread* t);
 int syscall_write(int fd, void* buffer, unsigned size, struct thread* t);
 void syscall_seek(int fd, unsigned position, struct thread* t);
+bool chdir(const char* dir);
+bool mkdir(const char* dir);
+bool readdir(int fd, char* name);
+bool isdir(int fd);
+int inumber(int fd);
 unsigned syscall_tell(int fd, struct thread* t);
 void validate_ptr(void* ptr, int size);
 void validate_str(void* str);
+double cache_hitrate();
+
+double cache_hitrate() { return buffer_cache_hitrate(); }
 
 void syscall_init(void) {
   // lock_init(&lock);
@@ -69,17 +79,10 @@ bool syscall_create(const char* file, unsigned initial_size) {
 
 bool syscall_remove(const char* file) { return filesys_remove(file); }
 
-int syscall_open(const char* file, struct thread* t) {
-  struct file* open_file = filesys_open(file);
-  if (open_file == NULL) {
-    return -1;
-  }
-  int file_descriptor = add_file_d(open_file, t);
-  return file_descriptor;
-}
+int syscall_open(const char* file, struct thread* t) { return fd_open(file); }
 
 int syscall_filesize(int fd, struct thread* t) {
-  struct file* file_struct = t->file_d[fd];
+  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
   if (!file_struct) {
     general_exit(-1);
   }
@@ -95,7 +98,11 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
     }
     return i;
   } else {
-    struct file* file_struct = t->file_d[fd];
+    struct file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
+    if (!file_meta || file_meta->isdir == true || !(file_meta->filesys_ptr)) {
+      return -1;
+    }
+    struct file* file_struct = (struct file*)file_meta->filesys_ptr;
     if (!file_struct) {
       return -1;
     }
@@ -111,7 +118,11 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   if (fd == 1) {
     putbuf(buffer, size);
   } else {
-    struct file* file_struct = t->file_d[fd];
+    struct file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
+    if (!file_meta || file_meta->isdir == true) {
+      return -1;
+    }
+    struct file* file_struct = (struct file*)file_meta->filesys_ptr;
     if (!file_struct) {
       general_exit(-1);
       return -1;
@@ -122,7 +133,7 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
 }
 
 void syscall_seek(int fd, unsigned position, struct thread* t) {
-  struct file* file_struct = t->file_d[fd];
+  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
   if (file_struct) {
     file_seek(file_struct, position);
   } else {
@@ -131,7 +142,7 @@ void syscall_seek(int fd, unsigned position, struct thread* t) {
 }
 
 unsigned syscall_tell(int fd, struct thread* t) {
-  struct file* file_struct = t->file_d[fd];
+  struct file* file_struct = (struct file*)(t->file_d[fd])->filesys_ptr;
   if (!file_struct) {
     general_exit(-1);
   }
@@ -139,7 +150,6 @@ unsigned syscall_tell(int fd, struct thread* t) {
 }
 
 void syscall_close(int fd, struct thread* t) { remove_file_d(fd, t); }
-
 /*
   * The syscall_handler function handles the syscall request by switching over args[0]. In the case of 
   * a file operation, the function acquires/releases a lock for the sake of mutual exclusion. It validates 
@@ -190,7 +200,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_str(args[1]);
       char* file_create = (char*)args[1];
       unsigned initial_size_create = (unsigned)args[2];
-      f->eax = syscall_create(file_create, initial_size_create);
+      f->eax = syscall_create(file_create, initial_size_create, 0);
       break;
     case SYS_OPEN:
       validate_ptr(args + 1, 4);
@@ -247,6 +257,36 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
         general_exit(-1);
       }
       syscall_close(fd_close, thread_current());
+      break;
+    case SYS_CHDIR:
+      validate_ptr(args + 1, 4);
+      const char* dir = args[1];
+      validate_str(dir);
+      f->eax = filesys_chdir(dir, thread_current());
+      break;
+    case SYS_MKDIR:
+      validate_ptr(args + 1, 4);
+      const char* dir = args[1];
+      validate_str(dir);
+      f->eax = filesys_create(dir, 0);
+      break;
+    case SYS_READDIR:
+      validate_ptr(args + 1, 4);
+      validate_ptr(args + 2, 4);
+      int fd = args[1];
+      char* name = args[2];
+      validate_str(name);
+      f->eax = filesys_readdir(fd, name, thread_current());
+      break;
+    case SYS_ISDIR:
+      validate_ptr(args + 1, 4);
+      int fd = args[1];
+      f->eax = filesys_isdir(fd, thread_current());
+      break;
+    case SYS_INUMBER:
+      validate_ptr(args + 1, 4);
+      int fd = args[1];
+      f->eax = filesys_inumber(fd, thread_current());
       break;
     default:
       break;

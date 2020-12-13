@@ -7,6 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "filesys/cache.h"
+#include "threads/thread.h"
 
 /* Partition that contains the file system. */
 struct block* fs_device;
@@ -27,12 +28,19 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
+
+  struct dir* dir = dir_open_root();
+  dir_add(dir, ".", dir->inode->sector);
+  dir_add(dir, "..", dir->inode->sector);
+  dir_close(dir);
 }
 
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
-//TODO cache flush*****************
-void filesys_done(void) { free_map_close(); }
+void filesys_done(void) {
+  free_map_close();
+  cache_flush();
+}
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
@@ -40,9 +48,17 @@ void filesys_done(void) { free_map_close(); }
    or if internal memory allocation fails. */
 bool filesys_create(const char* name, off_t initial_size) {
   block_sector_t inode_sector = 0;
-  struct dir* dir = dir_open_root();
-  bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
-                  inode_create(inode_sector, initial_size) && dir_add(dir, name, inode_sector));
+  // CHANGE TO TRAVERSE PATH ******
+  // struct dir* dir = dir_open_root();
+  char new_name[NAME_MAX + 1];
+  struct dir* dir == NULL;
+  bool success = resolve_path(name, &dir, new_name);
+  if (!success) {
+    return false;
+  }
+  bool success =
+      (dir != NULL && free_map_allocate(1, &inode_sector) &&
+       inode_create(inode_sector, initial_size, false) && dir_add(dir, new_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release(inode_sector, 1);
   dir_close(dir);
@@ -55,6 +71,7 @@ bool filesys_create(const char* name, off_t initial_size) {
    otherwise.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
+//TODO****************************
 struct file* filesys_open(const char* name) {
   struct dir* dir = dir_open_root();
   struct inode* inode = NULL;
@@ -66,16 +83,119 @@ struct file* filesys_open(const char* name) {
   return file_open(inode);
 }
 
+int fd_open(const char* name) {
+  int fd;
+  char new_name[NAME_MAX + 1];
+  struct dir* dir = NULL;
+  bool success = resolve_path(name, &dir, new_name);
+  if (!success) {
+    return -1;
+  }
+  struct inode* inode = NULL;
+  if (dir != NULL)
+    dir_lookup(dir, new_name, &inode);
+  dir_close(dir);
+  if (inode->isdir) {
+    struct dir* open_file = dir_open(inode);
+    return add_file_d((void*)open_file, t, true);
+  } else {
+    struct file* open_file = file_open(inode);
+    return = add_file_d(open_file, t, false);
+  }
+  return -1;
+}
+
 /* Deletes the file named NAME.
    Returns true if successful, false on failure.
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
+//TODO******************
 bool filesys_remove(const char* name) {
-  struct dir* dir = dir_open_root();
-  bool success = dir != NULL && dir_remove(dir, name);
+  char new_name[NAME_MAX + 1];
+  struct dir* dir = NULL;
+  bool success = resolve_path(name, &dir, new_name);
+  if (!success) {
+    return false;
+  }
+  bool success = dir != NULL && dir_remove(dir, new_name);
   dir_close(dir);
 
   return success;
+}
+
+bool filesys_chdir(const char* dir, struct thread* t) {
+  struct dir* dirs;
+  char name[NAME_MAX + 1];
+  bool success = resolve_path(dir, &dirs, name);
+  if (!success) {
+    return false;
+  }
+  struct inode* inode;
+  if (!dir_lookup(dirs, name, &inode)) {
+    dir_close(dirs);
+    return false;
+  }
+  dir_close(dirs);
+  dirs = dir_open(inode);
+  if (dirs == NULL) {
+    return false;
+  }
+  dir_close(t->cwd);
+  t->cwd = dirs;
+  return true;
+}
+
+bool filesys_mkdir(const char* dir, struct thread* t) {
+  struct dir* dirs;
+  char name[NAME_MAX + 1];
+  bool success = resolve_path(dir, &dirs, name);
+  if (!success) {
+    return false;
+  }
+
+  struct inode* inode;
+  if (dir_lookup(dirs, new_name, &inode)) {
+    dir_close(dirs);
+    return false;
+  }
+  block_sector_t inode_sector = 0;
+  bool success = (dirs != NULL && free_map_allocate(1, &inode_sector) &&
+                  dir_create(inode_sector, 2) && dir_add(dirs, new_name, inode_sector));
+  if (!success && inode_sector != 0)
+    free_map_release(inode_sector, 1);
+
+  if (!dir_lookup(dirs, new_name, &inode)) {
+    dir_close(dirs);
+    return false;
+  }
+  struct dir* new_dir = dir_open(inode);
+  if (new_dir == NULL) {
+    dir_close(dirs);
+    return false;
+  }
+  dir_add(new_dir, ".", new_dir->inode->sector);
+  dir_add(new_dir, "..", dirs->inode->sector);
+  dir_close(dirs);
+  dir_close(new_dir);
+  return true;
+}
+
+bool filesys_readdir(int fd, char* name, struct thread* t) {
+  struct dir* dir_struct = (struct dir*)(t->file_d[fd])->filesys_ptr;
+  if (!dir_struct) {
+    return false;
+  }
+  return dir_readdir(dir_struct, name);
+}
+
+bool filesys_isdir(int fd, struct thread* t) {
+  file_meta* file_meta = (struct file_meta*)(t->file_d[fd]);
+  return file_meta->isdir;
+}
+
+int filesys_inumber(int fd, struct thread* t) {
+  struct file* file = (struct file*)(t->file_d[fd])->filesys_ptr;
+  return file->inode->sector;
 }
 
 /* Formats the file system. */
@@ -101,21 +221,19 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
 
   char cur[NAME_MAX + 1];
   char next[NAME_MAX + 1];
+
+  // cur = 1 and next = 1 : cur = directory, might be stuff after next?
+  // cur = 1 and next = 0 : cur = last thing (could be dir or file)
   int cur_rv = get_next_part(cur, &path);
   int next_rv = get_next_part(next, &path);
-  struct inode* inode;
+  struct inode* inode = NULL;
 
   while (cur_rv == 1 && next_rv == 1) {
     if (!dir_lookup(*dir, cur, &inode)) {
       dir_close(*dir);
-      // inode_close(inode);
       return false;
     }
     dir_close(*dir);
-    if (!inode->isdir) {
-      inode_close(inode);
-      return false;
-    }
     *dir = dir_open(inode);
     if (*dir == NULL) {
       return false;
@@ -140,12 +258,12 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
 static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   const char* src = *srcp;
   char* dst = part;
-  /* Skip leading slashes. If it’s all slashes, we’re done. */ while (*src == ’/’)
+  /* Skip leading slashes. If it’s all slashes, we’re done. */ while (*src == '/')
     src++;
   if (*src == '\0')
     return 0;
-  /* Copy up to NAME_MAX character from SRC to DST. Add null terminator. */ while (*src != ’/’ &&
-                                                                                   *src != ’\0’) {
+  /* Copy up to NAME_MAX character from SRC to DST. Add null terminator. */
+  while (*src != '/' && *src != '\0') {
     if (dst < part + NAME_MAX)
       *dst++ = *src;
     else
@@ -153,6 +271,7 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
     src++;
   }
   *dst = '\0';
-  /* Advance source pointer. */ *srcp = src;
+  /* Advance source pointer. */
+  *srcp = src;
   return 1;
 }
