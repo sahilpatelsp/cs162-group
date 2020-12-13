@@ -25,7 +25,6 @@ bool filesys_readdir(int fd, char* name, struct thread* t);
 bool filesys_isdir(int fd, struct thread* t);
 int filesys_inumber(int fd, struct thread* t);
 bool resolve_path(char* path, struct dir** dir, char* name);
-static bool follow_path(const char* path, struct dir** dir_, char filename[NAME_MAX + 1]);
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void filesys_init(bool format) {
