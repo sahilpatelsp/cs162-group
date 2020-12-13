@@ -25,7 +25,7 @@ bool filesys_readdir(int fd, char* name, struct thread* t);
 bool filesys_isdir(int fd, struct thread* t);
 int filesys_inumber(int fd, struct thread* t);
 bool resolve_path(char* path, struct dir** dir, char* name);
-
+static bool follow_path(const char* path, struct dir** dir_, char filename[NAME_MAX + 1]);
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void filesys_init(bool format) {
@@ -40,6 +40,7 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
+
   struct dir* dir = dir_open_root();
   dir_add(dir, ".", dir->inode->sector);
   dir_add(dir, "..", dir->inode->sector);
@@ -59,21 +60,21 @@ void filesys_done(void) {
    or if internal memory allocation fails. */
 bool filesys_create(const char* name, off_t initial_size) {
   block_sector_t inode_sector = 0;
-  // CHANGE TO TRAVERSE PATH ******
-  // struct dir* dir = dir_open_root();
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
+  // printf("OUTPUT OF resolve path %d name %s new_name %s\n", dir == dir_open_root(), name, new_name);
   if (!success) {
     return false;
   }
   success =
       (dir != NULL && free_map_allocate(1, &inode_sector) &&
        inode_create(inode_sector, initial_size, false) && dir_add(dir, new_name, inode_sector));
-  if (!success && inode_sector != 0)
+  if (!success && inode_sector != 0) {
     free_map_release(inode_sector, 1);
+    // printf("FAILSKI\n");
+  }
   dir_close(dir);
-
   return success;
 }
 
@@ -271,7 +272,8 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
 int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   const char* src = *srcp;
   char* dst = part;
-  /* Skip leading slashes. If it’s all slashes, we’re done. */ while (*src == '/')
+  /* Skip leading slashes. If it’s all slashes, we’re done. */
+  while (*src == '/')
     src++;
   if (*src == '\0')
     return 0;

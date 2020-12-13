@@ -70,9 +70,6 @@ void general_exit(int status) {
 }
 
 bool syscall_create(const char* file, unsigned initial_size) {
-  if (strlen(file) > 14) {
-    return false;
-  }
   return filesys_create(file, initial_size);
 }
 
@@ -98,7 +95,7 @@ int syscall_read(int fd, void* buffer, unsigned size, struct thread* t) {
     return i;
   } else {
     struct file_meta file_meta = t->file_d[fd];
-    if (file_meta.isdir == true || !(file_meta.filesys_ptr)) {
+    if (file_meta.isdir == true) {
       return -1;
     }
     struct file* file_struct = (struct file*)file_meta.filesys_ptr;
@@ -119,6 +116,7 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   } else {
     struct file_meta file_meta = t->file_d[fd];
     if (file_meta.isdir == true) {
+      general_exit(-1);
       return -1;
     }
     struct file* file_struct = (struct file*)file_meta.filesys_ptr;
@@ -275,7 +273,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_ptr(args + 1, 4);
       const char* dir_mkdir = args[1];
       validate_str(dir_mkdir);
-      f->eax = filesys_create(dir_mkdir, 0);
+      f->eax = filesys_mkdir(dir_mkdir, thread_current());
       break;
     case SYS_READDIR:
       validate_ptr(args + 1, 4);

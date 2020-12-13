@@ -121,8 +121,9 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
 
   lock_acquire(&(dir->inode->dir_lock));
   /* Check that NAME is not in use. */
-  if (lookup(dir, name, NULL, NULL))
+  if (lookup(dir, name, NULL, NULL)) {
     goto done;
+  }
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -143,6 +144,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
 
 done:
   lock_release(&(dir->inode->dir_lock));
+  // printf("SUCCESS %d\n", success);
   return success;
 }
 
