@@ -98,6 +98,7 @@ int fd_open(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
+  // printf("SUCCESS %d\n", success);
   if (!success) {
     return -1;
   }
@@ -232,9 +233,8 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
     return false;
   } else if (path[0] == '/') {
     *dir = dir_open_root();
+    // printf("HELLO\n");
     path++;
-  } else if (!thread_current()->cwd) {
-    *dir = dir_open_root();
   } else {
     *dir = dir_reopen(thread_current()->cwd);
     // printf("TID RESOLVE %d\n", thread_current()->tid);
@@ -249,6 +249,11 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
   int cur_rv = get_next_part(cur, &path);
   int next_rv = get_next_part(next, &path);
   struct inode* inode = NULL;
+
+  if (cur_rv == 0 && next_rv == 0) {
+    strlcpy(name, ".", NAME_MAX + 1);
+    return true;
+  }
 
   while (cur_rv == 1 && next_rv == 1) {
     if (!dir_lookup(*dir, cur, &inode)) {

@@ -205,9 +205,17 @@ void process_exit(void) {
   }
   if (cur->file_d) {
     for (int x = 2; x < 128; x++) {
-      struct file* temp = (struct file*)(cur->file_d[x]).filesys_ptr;
-      if (temp) {
-        file_close(temp);
+      struct file_meta file_meta = cur->file_d[x];
+      if (file_meta.isdir) {
+        struct dir* temp = (struct dir*)(cur->file_d[x]).filesys_ptr;
+        if (temp) {
+          dir_close(temp);
+        }
+      } else {
+        struct file* temp = (struct file*)(cur->file_d[x]).filesys_ptr;
+        if (temp) {
+          file_close(temp);
+        }
       }
     }
     free(cur->file_d);

@@ -116,7 +116,6 @@ int syscall_write(int fd, void* buffer, unsigned size, struct thread* t) {
   } else {
     struct file_meta file_meta = t->file_d[fd];
     if (file_meta.isdir == true) {
-      general_exit(-1);
       return -1;
     }
     struct file* file_struct = (struct file*)file_meta.filesys_ptr;
