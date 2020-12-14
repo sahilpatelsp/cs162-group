@@ -161,19 +161,19 @@ bool dir_remove(struct dir* dir, const char* name) {
 
   /* Find directory entry. */
   if (!lookup(dir, name, &e, &ofs)) {
-    printf("LOOKUP FAIL\n");
+    // printf("LOOKUP FAIL\n");
     goto done;
   }
 
   /* Open inode. */
   inode = inode_open(e.inode_sector);
   if (inode == NULL) {
-    printf("INODE FAIL\n");
+    // printf("INODE FAIL\n");
     goto done;
   }
 
   if (inode->isdir && inode->open_cnt > 1) {
-    printf("INODE OPEN COUNT FAIL %d\n", inode->open_cnt);
+    // printf("INODE OPEN COUNT FAIL %d\n", inode->open_cnt);
     goto done;
   }
 
