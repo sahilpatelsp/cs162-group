@@ -129,17 +129,23 @@ bool filesys_remove(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dirs = NULL;
   bool success = resolve_path(name, &dirs, new_name);
+
   if (!success) {
     return false;
   }
+  // printf("NAME %s CHECK_DIR %d\n", new_name, dir_open_root()->inode->sector == dirs->inode->sector);
   // name = ./a/b/c
   // dirs -> b, new_name -> c
   struct inode* inode;
   if (!dir_lookup(dirs, new_name, &inode)) {
+    // printf("FAIL LOOKUP\n");
     dir_close(dirs);
     return false;
   }
+  inode_close(inode);
+  // printf("INODE OPEN COUNT %d\n", inode->open_cnt);
   success = (dirs != NULL && dir_remove(dirs, new_name));
+  // printf("SUCCESS %d\n", success);
   dir_close(dirs);
 
   return success;
@@ -176,15 +182,19 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   }
 
   struct inode* inode;
-  if (dir_lookup(dirs, name, &inode)) {
-    dir_close(dirs);
-    return false;
-  }
+  // if (dir_lookup(dirs, name, &inode)) {
+  //   dir_close(dirs);
+  //   return false;
+  // }
   block_sector_t inode_sector = 0;
   success = (dirs != NULL && free_map_allocate(1, &inode_sector) && dir_create(inode_sector, 2) &&
              dir_add(dirs, name, inode_sector));
-  if (!success && inode_sector != 0)
+  // printf("SUCCESS %d\n", success);
+  if (!success && inode_sector != 0) {
+    dir_close(dirs);
     free_map_release(inode_sector, 1);
+    return false;
+  }
 
   if (!dir_lookup(dirs, name, &inode)) {
     dir_close(dirs);
@@ -198,7 +208,9 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   dir_add(new_dir, ".", new_dir->inode->sector);
   dir_add(new_dir, "..", dirs->inode->sector);
   dir_close(dirs);
+  // printf("inode open count 1 %d\n", inode->open_cnt);
   dir_close(new_dir);
+  // printf("inode open count 2 %d\n", inode->open_cnt);
   return true;
 }
 

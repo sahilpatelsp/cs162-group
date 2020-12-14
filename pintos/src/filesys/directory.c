@@ -160,22 +160,28 @@ bool dir_remove(struct dir* dir, const char* name) {
   ASSERT(name != NULL);
 
   /* Find directory entry. */
-  if (!lookup(dir, name, &e, &ofs))
+  if (!lookup(dir, name, &e, &ofs)) {
+    // printf("LOOKUP FAIL\n");
     goto done;
+  }
 
   /* Open inode. */
   inode = inode_open(e.inode_sector);
-  if (inode == NULL)
+  if (inode == NULL) {
+    // printf("INODE FAIL\n");
     goto done;
+  }
 
   if (inode->isdir && inode->open_cnt > 1) {
+    // printf("INODE OPEN COUNT FAIL %d\n", inode->open_cnt);
     goto done;
   }
 
   if (inode->isdir) {
     struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
     cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
-    if (id->length != 0) {
+    if (id->length > (sizeof(struct dir_entry) * 2)) {
+      // printf("READ LENGTH FAIL\n");
       free(id);
       goto done;
     }
@@ -183,8 +189,10 @@ bool dir_remove(struct dir* dir, const char* name) {
   }
   /* Erase directory entry. */
   e.in_use = false;
-  if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
+  if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e) {
+    // printf("WRITE FAIL\n");
     goto done;
+  }
 
   /* Remove inode. */
   inode_remove(inode);
