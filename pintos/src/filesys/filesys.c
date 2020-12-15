@@ -44,7 +44,6 @@ void filesys_init(bool format) {
   dir_add(dir, ".", dir->inode->sector);
   dir_add(dir, "..", dir->inode->sector);
   thread_current()->cwd = dir;
-  // printf("TID FILESYS %d\n", thread_current()->tid);
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -63,7 +62,6 @@ bool filesys_create(const char* name, off_t initial_size) {
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
-  // printf("OUTPUT OF resolve path DIR SECTOR %d ROOT SECTOR %d CWD SECTOR %d name %s new_name %s\n", dir->inode->sector, dir_open_root()->inode->sector, thread_current()->cwd->inode->sector, name, new_name);
   if (!success) {
     return false;
   }
@@ -72,7 +70,6 @@ bool filesys_create(const char* name, off_t initial_size) {
        inode_create(inode_sector, initial_size, false) && dir_add(dir, new_name, inode_sector));
   if (!success && inode_sector != 0) {
     free_map_release(inode_sector, 1);
-    // printf("FAILSKI\n");
   }
   dir_close(dir);
   return success;
@@ -98,14 +95,15 @@ int fd_open(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
   bool success = resolve_path(name, &dir, new_name);
-  // printf("SUCCESS %d\n", success);
   if (!success) {
     return -1;
   }
   struct inode* inode = NULL;
   if (dir != NULL) {
+    dir_lookup(dir, new_name, &inode);
+  } else {
+    return -1;
   }
-  dir_lookup(dir, new_name, &inode);
   if (!inode) {
     dir_close(dir);
     return -1;
@@ -131,9 +129,9 @@ bool filesys_remove(const char* name) {
   bool success = resolve_path(name, &dirs, new_name);
 
   if (!success) {
+    // printf("FAIL RESOLVE\n");
     return false;
   }
-  // printf("NAME %s CHECK_DIR %d\n", new_name, dir_open_root()->inode->sector == dirs->inode->sector);
   // name = ./a/b/c
   // dirs -> b, new_name -> c
   struct inode* inode;
@@ -143,7 +141,7 @@ bool filesys_remove(const char* name) {
     return false;
   }
   inode_close(inode);
-  // printf("INODE OPEN COUNT %d\n", inode->open_cnt);
+  // printf("HERE\n");
   success = (dirs != NULL && dir_remove(dirs, new_name));
   // printf("SUCCESS %d\n", success);
   dir_close(dirs);
@@ -182,14 +180,9 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   }
 
   struct inode* inode;
-  // if (dir_lookup(dirs, name, &inode)) {
-  //   dir_close(dirs);
-  //   return false;
-  // }
   block_sector_t inode_sector = 0;
   success = (dirs != NULL && free_map_allocate(1, &inode_sector) && dir_create(inode_sector, 2) &&
              dir_add(dirs, name, inode_sector));
-  // printf("SUCCESS %d\n", success);
   if (!success && inode_sector != 0) {
     dir_close(dirs);
     free_map_release(inode_sector, 1);
@@ -198,19 +191,32 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
 
   if (!dir_lookup(dirs, name, &inode)) {
     dir_close(dirs);
+    free_map_release(inode_sector, 1);
     return false;
   }
   struct dir* new_dir = dir_open(inode);
   if (new_dir == NULL) {
     dir_close(dirs);
+    free_map_release(inode_sector, 1);
     return false;
   }
-  dir_add(new_dir, ".", new_dir->inode->sector);
-  dir_add(new_dir, "..", dirs->inode->sector);
+  success = dir_add(new_dir, ".", new_dir->inode->sector);
+  if (!success) {
+    dir_remove(dirs, name);
+    dir_close(dirs);
+    dir_close(new_dir);
+    free_map_release(inode_sector, 1);
+    return false;
+  }
+  success = dir_add(new_dir, "..", dirs->inode->sector);
+  if (!success) {
+    dir_remove(dirs, name);
+    dir_close(dirs);
+    free_map_release(inode_sector, 1);
+    return false;
+  }
   dir_close(dirs);
-  // printf("inode open count 1 %d\n", inode->open_cnt);
   dir_close(new_dir);
-  // printf("inode open count 2 %d\n", inode->open_cnt);
   return true;
 }
 
@@ -245,14 +251,11 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
     return false;
   } else if (path[0] == '/') {
     *dir = dir_open_root();
-    // printf("HELLO\n");
     path++;
   } else {
     *dir = dir_reopen(thread_current()->cwd);
-    // printf("TID RESOLVE %d\n", thread_current()->tid);
   }
 
-  // printf("CWD SECTOR %d\n", (*dir)->inode->sector);
   char cur[NAME_MAX + 1];
   char next[NAME_MAX + 1];
 

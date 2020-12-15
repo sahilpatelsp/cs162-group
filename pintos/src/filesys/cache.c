@@ -33,9 +33,6 @@ void cache_init(void) {
 void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_bytes) {
   struct entry* entry = get_entry(sector);
   lock_acquire(&entry->lock);
-  if (sector_ofs + num_bytes > BLOCK_SECTOR_SIZE) {
-    printf("OFFSET %d NUM BYTES %d\n", sector_ofs, num_bytes);
-  }
   memcpy(buffer, data + (BLOCK_SECTOR_SIZE * entry->data_index) + sector_ofs, num_bytes);
   lock_release(&entry->lock);
 }
@@ -43,9 +40,6 @@ void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_byt
 void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int num_bytes) {
   struct entry* entry = get_entry(sector);
   lock_acquire(&entry->lock);
-  if (sector_ofs + num_bytes > BLOCK_SECTOR_SIZE) {
-    printf("OFFSET %d NUM BYTES %d\n", sector_ofs, num_bytes);
-  }
   memcpy(data + (BLOCK_SECTOR_SIZE * entry->data_index) + sector_ofs, buffer, num_bytes);
   entry->dirty = 1;
   lock_release(&entry->lock);

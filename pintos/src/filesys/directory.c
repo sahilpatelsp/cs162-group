@@ -93,10 +93,11 @@ bool dir_lookup(const struct dir* dir, const char* name, struct inode** inode) {
   ASSERT(dir != NULL);
   ASSERT(name != NULL);
 
-  if (lookup(dir, name, &e, NULL))
+  if (lookup(dir, name, &e, NULL)) {
     *inode = inode_open(e.inode_sector);
-  else
+  } else {
     *inode = NULL;
+  }
   lock_release(&(dir->inode->dir_lock));
   return *inode != NULL;
 }
@@ -161,31 +162,20 @@ bool dir_remove(struct dir* dir, const char* name) {
 
   /* Find directory entry. */
   if (!lookup(dir, name, &e, &ofs)) {
-    // printf("LOOKUP FAIL\n");
     goto done;
   }
 
   /* Open inode. */
   inode = inode_open(e.inode_sector);
   if (inode == NULL) {
-    // printf("INODE FAIL\n");
     goto done;
   }
 
   if (inode->isdir && inode->open_cnt > 1) {
-    // printf("INODE OPEN COUNT FAIL %d\n", inode->open_cnt);
     goto done;
   }
 
   if (inode->isdir) {
-    // struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
-    // cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
-    // if (id->length > (sizeof(struct dir_entry) * 2)) {
-    //   printf("LENGTH %d\n", id->length);
-    //   printf("READ LENGTH FAIL\n");
-    //   free(id);
-    //   goto done;
-    // }
     struct dir* child_dir = dir_open(inode);
     char name_full[NAME_MAX + 1];
     if (dir_readdir(child_dir, name_full)) {
@@ -193,12 +183,11 @@ bool dir_remove(struct dir* dir, const char* name) {
       dir_close(child_dir);
       goto done;
     }
-    // free(id);
+    dir_close(child_dir);
   }
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e) {
-    // printf("WRITE FAIL\n");
     goto done;
   }
 

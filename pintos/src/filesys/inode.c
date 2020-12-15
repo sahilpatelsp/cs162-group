@@ -95,6 +95,9 @@ struct inode* inode_open(block_sector_t sector) {
   lock_release(&open_inodes_lock);
 
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  if (id == NULL) {
+    return NULL;
+  }
   cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   inode->isdir = id->isdir;
   free(id);
@@ -127,6 +130,9 @@ void inode_close(struct inode* inode) {
     /* Deallocate blocks if removed. */
     if (inode->removed) {
       struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+      if (id == NULL) {
+        return;
+      }
       cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
       lock_acquire(&inode->resize_lock);
       inode_resize(id, 0);
@@ -149,6 +155,9 @@ void inode_remove(struct inode* inode) {
    than SIZE if an error occurs or end of file is reached. */
 off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset) {
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  if (id == NULL) {
+    return 0;
+  }
   cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   size = (size <= id->length - offset) ? size : id->length - offset;
   if (size <= 0) {
@@ -222,6 +231,9 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     return 0;
 
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  if (id == NULL) {
+    return 0;
+  }
   cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   int new_size = (id->length >= size + offset) ? id->length : size + offset;
   // printf("NEW SIZE %d LENGTH %d\n", new_size, id->length);
@@ -307,6 +319,9 @@ void inode_allow_write(struct inode* inode) {
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) {
   struct inode_disk* id = (struct inode_disk*)malloc(sizeof(struct inode_disk));
+  if (id == NULL) {
+    return 0;
+  }
   cache_read(inode->sector, id, 0, BLOCK_SECTOR_SIZE);
   off_t size = id->length;
   free(id);
@@ -340,6 +355,9 @@ bool handle_direct(block_sector_t* buffer, off_t size, int i, off_t offset) {
 bool handle_indirect(block_sector_t* buffer_id, off_t size, off_t offset) {
   block_sector_t sector;
   block_sector_t* buffer = calloc(128, sizeof(block_sector_t));
+  if (!buffer) {
+    return false;
+  }
   bool success;
 
   //Allocating sector for indirect pointer
