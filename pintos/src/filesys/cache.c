@@ -45,11 +45,7 @@ void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int 
   lock_release(&entry->lock);
 }
 
-void write_back(void* block, block_sector_t sector) {
-  // printf("WB1\n");
-  block_write(fs_device, sector, block);
-  // printf("WB2\n");
-}
+void write_back(void* block, block_sector_t sector) { block_write(fs_device, sector, block); }
 
 void cache_flush(void) {
   lock_acquire(&lru_lock);

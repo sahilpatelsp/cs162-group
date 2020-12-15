@@ -99,11 +99,7 @@ int fd_open(const char* name) {
     return -1;
   }
   struct inode* inode = NULL;
-  if (dir != NULL) {
-    dir_lookup(dir, new_name, &inode);
-  } else {
-    return -1;
-  }
+  dir_lookup(dir, new_name, &inode);
   if (!inode) {
     dir_close(dir);
     return -1;
@@ -116,7 +112,6 @@ int fd_open(const char* name) {
     struct file* open_file = file_open(inode);
     return add_file_d(open_file, thread_current(), false);
   }
-  return -1;
 }
 
 /* Deletes the file named NAME.
@@ -127,25 +122,14 @@ bool filesys_remove(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dirs = NULL;
   bool success = resolve_path(name, &dirs, new_name);
-
   if (!success) {
-    // printf("FAIL RESOLVE\n");
     return false;
   }
   // name = ./a/b/c
   // dirs -> b, new_name -> c
   struct inode* inode;
-  if (!dir_lookup(dirs, new_name, &inode)) {
-    // printf("FAIL LOOKUP\n");
-    dir_close(dirs);
-    return false;
-  }
-  inode_close(inode);
-  // printf("HERE\n");
   success = (dirs != NULL && dir_remove(dirs, new_name));
-  // printf("SUCCESS %d\n", success);
   dir_close(dirs);
-
   return success;
 }
 
@@ -191,13 +175,13 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
 
   if (!dir_lookup(dirs, name, &inode)) {
     dir_close(dirs);
-    free_map_release(inode_sector, 1);
     return false;
   }
+
   struct dir* new_dir = dir_open(inode);
   if (new_dir == NULL) {
-    dir_close(dirs);
     free_map_release(inode_sector, 1);
+    dir_close(dirs);
     return false;
   }
   success = dir_add(new_dir, ".", new_dir->inode->sector);
@@ -212,6 +196,7 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   if (!success) {
     dir_remove(dirs, name);
     dir_close(dirs);
+    dir_close(new_dir);
     free_map_release(inode_sector, 1);
     return false;
   }

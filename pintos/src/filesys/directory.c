@@ -183,6 +183,8 @@ bool dir_remove(struct dir* dir, const char* name) {
       dir_close(child_dir);
       goto done;
     }
+    dir_remove(child_dir, ".");
+    dir_remove(child_dir, "..");
     dir_close(child_dir);
   }
   /* Erase directory entry. */

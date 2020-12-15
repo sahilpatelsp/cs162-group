@@ -81,8 +81,9 @@ struct inode* inode_open(block_sector_t sector) {
 
   /* Allocate memory. */
   inode = malloc(sizeof *inode);
-  if (inode == NULL)
+  if (inode == NULL) {
     return NULL;
+  }
 
   /* Initialize. */
   list_push_front(&open_inodes, &inode->elem);
