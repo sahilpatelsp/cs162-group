@@ -58,6 +58,8 @@ enum block_type block_type(struct block*);
 /* Statistics. */
 void block_print_stats(void);
 
+int block_write_count(struct block* block);
+
 /* Lower-level interface to block device drivers. */
 
 struct block_operations {

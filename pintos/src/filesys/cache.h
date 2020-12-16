@@ -10,6 +10,8 @@ void cache_init(void);
 void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_bytes);
 void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int num_bytes);
 void cache_flush(void);
+int cache_hitrate(void);
+int get_write_count(void);
 
 struct entry {
   block_sector_t sector;

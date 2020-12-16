@@ -102,3 +102,9 @@ bool readdir(int fd, char name[READDIR_MAX_LEN + 1]) { return syscall2(SYS_READD
 bool isdir(int fd) { return syscall1(SYS_ISDIR, fd); }
 
 int inumber(int fd) { return syscall1(SYS_INUMBER, fd); }
+
+void flush(void) { syscall0(SYS_FLUSH); }
+
+int cache_hitrate(void) { return syscall0(SYS_HITRATE); }
+
+int write_count(void) { return syscall0(SYS_WRCNT); }

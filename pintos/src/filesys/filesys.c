@@ -25,6 +25,7 @@ bool filesys_readdir(int fd, char* name, struct thread* t);
 bool filesys_isdir(int fd, struct thread* t);
 int filesys_inumber(int fd, struct thread* t);
 bool resolve_path(char* path, struct dir** dir, char* name);
+
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void filesys_init(bool format) {
@@ -91,6 +92,11 @@ struct file* filesys_open(const char* name) {
   return file_open(inode);
 }
 
+/* Opens the file with the given NAME.
+   Returns the new file if successful or a null pointer
+   otherwise.
+   Fails if no file named NAME exists,
+   or if an internal memory allocation fails. */
 int fd_open(const char* name) {
   char new_name[NAME_MAX + 1];
   struct dir* dir = NULL;
@@ -133,6 +139,8 @@ bool filesys_remove(const char* name) {
   return success;
 }
 
+/* Changes the current working directory of the process
+to dir, which may be relative or absolute. Returns true if successful, false on failure.*/
 bool filesys_chdir(const char* dir, struct thread* t) {
   struct dir* dirs;
   char name[NAME_MAX + 1];
@@ -155,6 +163,8 @@ bool filesys_chdir(const char* dir, struct thread* t) {
   return true;
 }
 
+/* Creates the directory named dir, which may be relative or absolute. Returns true if successful, false on failure. Fails if dir already exists or if any
+directory name in dir, besides the last, does not already exist. */
 bool filesys_mkdir(const char* dir, struct thread* t) {
   struct dir* dirs;
   char name[NAME_MAX + 1];
@@ -205,6 +215,10 @@ bool filesys_mkdir(const char* dir, struct thread* t) {
   return true;
 }
 
+/* Reads a directory entry from file descriptor fd,
+which must represent a directory. If successful, stores the null-terminated file name in name, which
+must have room for READDIR MAX LEN + 1 bytes, and returns true. If no entries are left in the
+directory, returns false. */
 bool filesys_readdir(int fd, char* name, struct thread* t) {
   struct dir* dir_struct = (struct dir*)(t->file_d[fd]).filesys_ptr;
   if (!dir_struct) {
@@ -213,6 +227,8 @@ bool filesys_readdir(int fd, char* name, struct thread* t) {
   return dir_readdir(dir_struct, name);
 }
 
+/* Returns true if fd represents a directory, false if it represents an
+ordinary file.*/
 bool filesys_isdir(int fd, struct thread* t) { return (t->file_d[fd]).isdir; }
 
 int filesys_inumber(int fd, struct thread* t) {
@@ -230,7 +246,7 @@ static void do_format(void) {
   printf("done.\n");
 }
 
-/* Resolve path into dir and name, unsure about close */
+/* Resolve path into dir and name */
 bool resolve_path(char* path, struct dir** dir, char* name) {
   if (path[0] == '\0') {
     return false;
@@ -282,7 +298,8 @@ bool resolve_path(char* path, struct dir** dir, char* name) {
   return false;
 }
 
-/* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the next call will return the next file name part. Returns 1 if successful, 0 at end of string, -1 for a too-long file name part. */
+/* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the next call will return the next file name part. 
+Returns 1 if successful, 0 at end of string, -1 for a too-long file name part. */
 int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   const char* src = *srcp;
   char* dst = part;

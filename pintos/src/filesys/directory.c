@@ -120,7 +120,6 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   if (*name == '\0' || strlen(name) > NAME_MAX)
     return false;
 
-  // lock_acquire(&(dir->inode->dir_lock));
   /* Check that NAME is not in use. */
   if (lookup(dir, name, NULL, NULL)) {
     goto done;
@@ -143,7 +142,6 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   e.inode_sector = inode_sector;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
 done:
-  // lock_release(&(dir->inode->dir_lock));
   return success;
 }
 

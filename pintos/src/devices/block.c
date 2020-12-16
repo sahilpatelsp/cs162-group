@@ -134,6 +134,8 @@ void block_print_stats(void) {
   }
 }
 
+int block_write_count(struct block* block) { return block->write_cnt; }
+
 /* Registers a new block device with the given NAME.  If
    EXTRA_INFO is non-null, it is printed as part of a user
    message.  The block device's SIZE in sectors and its TYPE must

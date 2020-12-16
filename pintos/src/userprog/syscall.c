@@ -26,14 +26,14 @@ int inumber(int fd);
 unsigned syscall_tell(int fd, struct thread* t);
 void validate_ptr(void* ptr, int size);
 void validate_str(void* str);
-int cache_hitrate();
+int syscall_hitrate(void);
+void syscall_reset(void);
 
-int cache_hitrate() { return buffer_cache_hitrate(); }
+int syscall_hitrate(void) { return cache_hitrate(); }
 
-void syscall_init(void) {
-  // lock_init(&lock);
-  intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
-}
+void syscall_reset(void) { return cache_flush(); }
+
+void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
 
 /*
 * validate_ptr() is a helper function for validating arguments to ensure that pointers to syscall arguments 
@@ -291,6 +291,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
       validate_ptr(args + 1, 4);
       int fd_inumber = args[1];
       f->eax = filesys_inumber(fd_inumber, thread_current());
+      break;
+    case SYS_FLUSH:
+      syscall_reset();
+      break;
+    case SYS_HITRATE:
+      f->eax = syscall_hitrate();
+    case SYS_WRCNT:
+      f->eax = get_write_count();
       break;
     default:
       break;

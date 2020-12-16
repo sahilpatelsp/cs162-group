@@ -14,7 +14,8 @@ void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int 
 void cache_flush(void);
 struct entry* get_entry(block_sector_t sector);
 struct entry* sector_to_entry(block_sector_t sector);
-int buffer_cache_hitrate(void);
+int cache_hitrate(void);
+int get_write_count(void);
 
 struct lock lru_lock;
 struct list lru;
@@ -27,9 +28,12 @@ int cache_misses;
 void cache_init(void) {
   list_init(&lru);
   lock_init(&lru_lock);
+  cache_hits = 0;
+  cache_misses = 0;
   data = calloc(32768, sizeof(char));
 }
 
+//Fetches block from disk/cache and copies into buffer
 void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_bytes) {
   struct entry* entry = get_entry(sector);
   lock_acquire(&entry->lock);
@@ -37,6 +41,7 @@ void cache_read(block_sector_t sector, void* buffer, int sector_ofs, int num_byt
   lock_release(&entry->lock);
 }
 
+// Fetches block from disk/cache and writes from buffer to cache
 void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int num_bytes) {
   struct entry* entry = get_entry(sector);
   lock_acquire(&entry->lock);
@@ -45,8 +50,10 @@ void cache_write(block_sector_t sector, const void* buffer, int sector_ofs, int 
   lock_release(&entry->lock);
 }
 
+// Writes block back to disk
 void write_back(void* block, block_sector_t sector) { block_write(fs_device, sector, block); }
 
+// Flushes cache, deleting corresponding entries from the lru list
 void cache_flush(void) {
   lock_acquire(&lru_lock);
   cache_hits = 0;
@@ -64,6 +71,7 @@ void cache_flush(void) {
   lock_release(&lru_lock);
 }
 
+// Checks if cache contains given sector. If so, returns corresponding entry struct. If not, returns NULL
 struct entry* sector_to_entry(block_sector_t sector) {
   struct entry* entry;
   struct list_elem* e;
@@ -76,6 +84,7 @@ struct entry* sector_to_entry(block_sector_t sector) {
   return NULL;
 }
 
+// Gets block from disk/cache
 struct entry* get_entry(block_sector_t sector) {
   struct entry* entry;
   lock_acquire(&lru_lock);
@@ -107,4 +116,6 @@ struct entry* get_entry(block_sector_t sector) {
   return entry;
 }
 
-int buffer_cache_hitrate(void) { return cache_hits / (cache_hits + cache_misses); }
+// Functions for buffer-cache tests
+int cache_hitrate(void) { return cache_hits; }
+int get_write_count(void) { return block_write_count(fs_device); }

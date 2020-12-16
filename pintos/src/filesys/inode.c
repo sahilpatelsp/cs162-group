@@ -329,6 +329,7 @@ off_t inode_length(const struct inode* inode) {
   return size;
 }
 
+// Helper function to resize direct pointers
 bool handle_direct(block_sector_t* buffer, off_t size, int i, off_t offset) {
   bool success;
   if (size <= BLOCK_SECTOR_SIZE * (i + offset) && buffer[i] != 0) {
@@ -344,6 +345,7 @@ bool handle_direct(block_sector_t* buffer, off_t size, int i, off_t offset) {
   return true;
 }
 
+// Helper function to resize indirect pointers
 bool handle_indirect(block_sector_t* buffer_id, off_t size, off_t offset) {
   block_sector_t sector;
   block_sector_t* buffer = calloc(128, sizeof(block_sector_t));
@@ -383,6 +385,7 @@ bool handle_indirect(block_sector_t* buffer_id, off_t size, off_t offset) {
   return true;
 }
 
+// Helper function to resize doubly indirect pointers
 bool handle_doubly_indirect(block_sector_t* buffer_id, off_t size, off_t offset) {
   block_sector_t sector;
   block_sector_t buffer[128];
@@ -414,6 +417,7 @@ bool handle_doubly_indirect(block_sector_t* buffer_id, off_t size, off_t offset)
   return true;
 }
 
+// Function to resize inodes, performing both growing and shrinking of inodes
 bool inode_resize(struct inode_disk* id, int size) {
   bool success;
   // Handle all direct pointers
